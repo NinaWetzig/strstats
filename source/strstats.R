@@ -7,27 +7,21 @@ library("optparse")
 
 option_list = list(
   make_option(c("-p", "--profile"), type="character", default=NULL, 
-              help="output file name [default= %default]", metavar="character"),
+              help="output = data frame", metavar="character"),
   make_option(c("-j", "--jinput"), type="character", default=NULL, 
-              help="output file name [default= %default]", metavar="character"),
+              help="invisible output = data frame", metavar="character"),
   make_option(c("-e", "--jinput1"), type="character", default=NULL, 
-              help="output file name [default= %default]", metavar="character"),
+              help="combines two data frames and adds columns 'j1' ans 'j2'. output = csv Table", metavar="character"),
   make_option(c("-z", "--jinput2"), type="character", default=NULL, 
               help="output file name [default= %default]", metavar="character"),
   make_option(c("-r", "--rawinput"), type="character", default=NULL, 
-              help="output file name [default= %default]", metavar="character")
+              help="aggregates data frames and sums up the column 'Reads' per 'Marker' and per 'Marker' and 'Allele'.output = data frame", metavar="character")
   
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 print(opt)
-print("Test")
-print(is.null(opt$profile))
-print(!is.null(opt$profile))
-
-
-#args = commandArgs(trailingOnly=TRUE)
 
 print("Lese datei:")
 
