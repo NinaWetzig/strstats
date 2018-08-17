@@ -9,9 +9,55 @@ read_profile <- function(profile_file){
   return(profiles)
 }
 
+#Funktion zur Berechnung der Read-Summen je nach Marker und Allel
+read_raw_input  <- function(raw_input_file){
+  raw_names <- c("Run", "Sample", "Marker", "Allele", "Pattern", "Quality", "Reads", "Variants")
+  #Einlesen der Tabelle
+  raw_input <- read.csv(raw_input_file, na.strings=c("","NA"), sep =",", col.names = raw_names, header = TRUE, stringsAsFactors = FALSE)
+  #Berechnet die Read-Summe pro Marker
+  agg_input <- aggregate(raw_input$Reads, by = list(Run = raw_input$Run, Sample = raw_input$Sample, Marker = raw_input$Marker), FUN = function(x) sum = sum(x))
+  agg_input <- do.call(data.frame, agg_input)
+  #Berechnet die Read-Summe pro Marker und Allele
+  agg_input_Allele <- aggregate(raw_input$Reads, by = list(Run = raw_input$Run, Sample = raw_input$Sample, Marker = raw_input$Marker, Allele = raw_input$Allele), FUN = function(x) sum(x))
+  agg_input_Allele <- do.call(data.frame, agg_input_Allele)
+  #neue Namen der Spalten
+  colnames(agg_input) <- c("Run", "Sample", "Marker", "Sum")
+  colnames(agg_input_Allele) <- c("Run", "Sample", "Marker", "Allel", "Sum")
+  #result ist eine Liste der gewünschten Ausgaben, damit die Funktion mehrere Ausgaben gibt
+  result = list(agg_input, agg_input_Allele)
+  return(result)
+}
+
+#Einlesen der Run_01_short Tabelle
+#raw_names <- c("Run", "Sample", "Marker", "Allele", "Pattern", "Quality", "Reads", "Variants")
+#raw_input_file <- read.csv("/home/nina/Downloads/Run_01_short.out",na.strings=c("","NA"), sep =",", col.names = raw_names, header = TRUE, stringsAsFactors = FALSE)
+#Berechenen der Read-Summe pro Marker
+#agg <- aggregate(raw_input_file$Reads, by = list(run = raw_input_file$Run, raw_input_file$Sample, state = raw_input_file$Marker), FUN = function(x) sum=sum(x))
+
+#Run_01_short Tabelle
+#verbinde die Spalten Marker und Allele zu einer
+#tab_combined <- unite(raw_input_file, newcol, c(Marker, Allele))
+#Berechnen der Read-Summe pro Marker und Allel
+#agg_Run_01_short <- aggregate(tab_combined$Reads, by = list(run = tab_combined$Run, tab_combined$Sample, state = tab_combined$newcol), FUN = function(x) sum=sum(x))
+
+
+#Einlesen der Run_01 Tabelle
+#raw_names <- c("Run", "Sample", "Marker", "Allele", "Pattern", "Quality", "Reads", "Variants")
+#Run_01 <- read.csv("/home/nina/Downloads/Run_01.out",na.strings=c("","NA"), sep =",", col.names = raw_names, header = TRUE, stringsAsFactors = FALSE)
+#Berechnen der Read-Summe pro Marker
+#### NEW VERSION
+#agg_marker_Run_01 <- aggregate(Run_01$Reads, by = list(Run = Run_01$Run, Sample = Run_01$Sample, Marker = Run_01$Marker), FUN = function(x) sum=sum(x))
+
+#Run_01 Tabelle
+#verbinde die Spalten Marker und Allele zu einer
+#Run_01_combined <- unite(Run_01, newcol, c(Marker, Allele))
+#Berechnen der Read-Summe pro Marker und Allel
+#agg_allele_Run_01 <- aggregate(Run_01$Reads, by = list(Run = Run_01$Run, Sample = Run_01$Sample, Marker = Run_01$Marker, Allele = Run_01$Allele), FUN = function(x) sum=sum(x))
+
+
 read_Jinput <- function(j_input_file){
   names2 <- c("Marker", "Allele" , "Pattern" , "Pattern_Quality" , "Reads", "Variants")
-  j_input <- read.csv(j_input_file, na.strings=c("","NA"), sep = ",", col.names = names2, header = FALSE, stringsAsFactors = FALSE,colClasses = c("character", "character", "character", "numeric", "numeric", "character"))
+  j_input <- read.csv(j_input_file, na.strings=c("","NA"), sep = ",", col.names = names2, header = FALSE, stringsAsFactors = FALSE, colClasses = c("character", "character", "character", "numeric", "numeric", "character"))
   invisible(j_input)
 }
 
