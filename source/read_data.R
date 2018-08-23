@@ -1,3 +1,7 @@
+library(reshape)
+library(tidyr)
+library(dplyr)
+
 #' params: profile_file - a profile csv file
 #' return: data.frame of the prfile file
 read_profile <- function(profile_file){
@@ -111,3 +115,57 @@ create_csv <- function(j1in,j2in){
   J_csv <- write.csv(J_input, file = "results/J_STR_3.csv", na = "", quote = FALSE, row.names = FALSE)
   return("results/J_STR_3.csv")
 }
+
+
+compare_call_to_Allele <- function(Run_01_file, Profiles_file, global_samples_file){
+#einlesen der Run_01_short Tabelle
+Run_01_short <- read.csv(Run_01_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
+colnames(Run_01_short) <- c("Run", "Sample", "Marker", "call_Allele", "Pattern", "Quality", "Reads", "Variants")
+
+#einlesen der profiles Tabelle
+Profiles <- read.csv(Profiles_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
+Profiles_melt <- melt(Profiles, id = "Marker")
+colnames(Profiles_melt) = c("Marker", "Patient", "Allel")
+
+#einlesen der global_sample Tabelle
+global_samples <- read.csv(global_samples_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
+
+#zu der Run_01_short Tabelle wird die Spalte Patienten zugefügt, nach der global_samples Tabelle
+Run_01_short$Patient <- global_samples$Patient[match(Run_01_short$Sample, global_samples$Sample)]
+#Run_01_short$wAllel <- Profiles_melt$Allel[match(Run_01_short$Marker, Profiles_melt$Marker, Run_01_short$Patient, Profiles_melt$Patient)]
+
+#Profiles_cast <- cast(Profiles_melt, formula = c(Marker, Patient) ~ Allel)
+#Profiles_cast <- recast(Profiles_melt,formula =  Marker ~ variable, id.var = "Allel")
+#Profiles_cast <- aggregate(cbind(Marker, Patient) ~ Allel, data = Profiles_melt)
+#Profiles_cast <- with(Profiles_melt, tapply(Allel, list(Marker, Patient)))
+#Profiles_cast <- reshape(Profiles_melt, idvar = "Allel")
+#Profiles_cast <- reshape(Profiles_melt, idvar = c("Marker", "Patient"), timevar = "Allel", direction = "wide")
+#Profiles_cast <- reshape(Profiles_melt, direction="wide", idvar=c("Patient"), timevar="Marker")
+#Profiles_cast <- separate(Profiles_melt, col = "Allel", into = c("Allel_1", "Allel_2"))
+#Profiles_cast <- aggregate(Allel ~ Marker + Patient, data= Profiles_melt, I)
+
+#Die Tabelle Profiles_melt hatte die Allele in einer Spalte untereinander, die neue Tabelle Profiles_cast hat für jedes Alell eine Spalte
+#Profiles_melt[seq(1, nrow(Profiles_melt), by=2),], Profiles_melt[seq(2, (nrow(Profiles_melt) Jede zweite Zeile der Tabelle beginnend mit der ersten Zeile wird in eine Tabelle umgeschrieben
+#Das gleiche passiert auch beginnend mit der zweiten Zeile. Beides wird mit cbind in eine Tabelle  zusammengefügt. Dabei unterscheiden sich nur die Spalten mit den Allelen
+#[,c(4,5)*-1] die 4. und die 5. Spalte werden gelöscht. Diese beiden Spalten enthielten nochmal Marker und Patient, genau wie die ersten beiden Spalten 
+Profiles_cast <- cbind(Profiles_melt[seq(1, nrow(Profiles_melt), by=2),], Profiles_melt[seq(2, (nrow(Profiles_melt)), by=2),])[,c(4,5)*-1]
+colnames(Profiles_cast) = c("Marker", "Patient", "Allel_1", "Allel_2")
+
+#Run_01_short$trueAllel1 <- Profiles_cast$Allel_1[match(Run_01_short$Marker, Profiles_cast$Marker), match(Run_01_short$Patient, Profiles_cast$Patient)]
+#Run_01_short$trueAllel1 <- Profiles_cast$Allel_1[match(match(Run_01_short$Marker, Profiles_cast$Marker), match(Run_01_short$Patient, Profiles_cast$Patient))]
+
+# Vereint die Tabellen Run_01 und Profiles_cast miteinamder, sodass alle Spalten der Run_01 Tabelle erhalten bleiben und Allel1 und Allel2 dazu kommen
+combined_tabel <- inner_join(Run_01_short, Profiles_cast)
+
+
+#merge(Run_01_short, Profiles_cast, by.x = c("Patient", "Marker"), by.y = c("Patient", "Marker"), all.x = TRUE, all.y = TRUE)
+
+#which( outer(combined_tabel$call_Allele, combined_tabel$Allel_1, "==") | outer(combined_tabel$call_Allele, combined_tabel$Allel_2, "=="), arr.ind=TRUE)
+
+#neue Spalte für combined_tabel, diese Spalte heißt test. Wenn das call-Allel mit einem der korrekten Allele übereinstimmt, steht in der Spalte ein true, sonst ein wrong
+for (i in 1:nrow(combined_tabel)){
+if (combined_tabel$call_Allele[i] == combined_tabel$Allel_1[i] | combined_tabel$call_Allele[i] == combined_tabel$Allel_2[i]) {combined_tabel$test[i] = "true"} else {combined_tabel$test[i] = "wrong"}
+}
+return(combined_tabel)
+}
+
