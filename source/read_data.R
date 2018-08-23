@@ -91,6 +91,11 @@ create_csv <- function(j1in,j2in){
 
 
 compare_call_to_Allele <- function(Run_01_file, Profiles_file, global_samples_file) {
+  
+  Run_01_file <- "/home/nina/Downloads/Run_01_short.out"
+  Profiles_file <- "/home/nina/projects/strstats/resources/profiles.csv" 
+  global_samples_file <- "/home/nina/projects/strstats/resources/global_sample_overview_forensic.csv"
+  
   #einlesen der Run_01_short Tabelle
   Run_01_short <- read.csv(Run_01_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
   colnames(Run_01_short) <- c("Run", "Sample", "Marker", "call_Allele", "Pattern", "Quality", "Reads", "Variants")
@@ -116,12 +121,37 @@ compare_call_to_Allele <- function(Run_01_file, Profiles_file, global_samples_fi
   
   # Vereint die Tabellen Run_01 und Profiles_cast miteinamder, sodass alle Spalten der Run_01 Tabelle erhalten bleiben und Allel1 und Allel2 dazu kommen
   combined_table <- inner_join(Run_01_short, Profiles_cast)
-  
+  # Allel1 und Allel2 Spalten von character zu numeric
+  combined_table$Allel_1 <- as.numeric(as.character(combined_table$Allel_1))
+  combined_table$Allel_2 <- as.numeric(as.character(combined_table$Allel_2))
 
   #neue Spalte für combined_table, diese Spalte heißt test. Wenn das call-Allel mit einem der korrekten Allele übereinstimmt, steht in der Spalte ein true, sonst ein wrong
   for (i in 1:nrow(combined_table)) {
-    if (combined_table$call_Allele[i] == combined_tabel$Allel_1[i] | combined_table$call_Allele[i] == combined_table$Allel_2[i]) {combined_table$test[i] = "true"} else {combined_table$test[i] = "wrong"}
+    if (combined_table$call_Allele[i] == combined_table$Allel_1[i] | combined_table$call_Allele[i] == combined_table$Allel_2[i]) {combined_table$test[i] = "true"} 
+    else if (combined_table$call_Allele[i] == combined_table$Allel_1[i] - 1 | combined_table$call_Allele[i] == combined_table$Allel_2[i] -1) {combined_table$test[i] = "stutter"}
+    else {combined_table$test[i] = "LN"}
   }
   return(combined_table)
 }
 
+#combined_table$Reads <- as.numeric(as.character(combined_table$Reads))
+
+#x <- group_by(combined_table, Marker, Patient)
+#y <- summarise(x, Reads =sum(combined_table[which(combined_table[,1]>30, 2])) 
+
+#Depth of Coverage
+DoC <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample, Marker = combined_table$Marker), FUN = function(x) {sum = sum(x)})
+colnames(DoC) = c("Run", "Sample", "Marker", "DoC")
+ 
+#Summe der Reads pro call_Allel, Marker und Sample
+#agg_call_Allel <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample, Marker = combined_table$Marker,call_Allel = combined_table$call_Allele,  Allel1 = combined_table$Allel_1, Allel2 = combined_table$Allel_2, Test = combined_table$test), FUN = function(x) {sum = sum(x)})
+#colnames(agg_call_Allel) = c("call_Allel", "Run", "Sample", "Marker","Allel1", "Allel2", "Test", "Read_Summe" )
+
+#löscht ] und Zahlen in der Tabelle, damit die Pattern verglichen werden können. 
+profiles$Marker <- gsub(pattern = "[[:punct:]]", replacement="", x = profiles$Marker)
+profiles$Marker <- gsub(pattern = "[0-9]", replacement="", x = profiles$Marker)
+
+#z <-  y[y$Test == "stutter", y$Read_Summe] / y[y$Test == "true", y$Read_Summe]
+
+#Sortiert die combined_table aufsteigend nach Run, Sample, Marker und absteigend nach Reads
+combined_table <- combined_table[order(combined_table$Run, combined_table$Sample, combined_table$Marker, -combined_table$Reads),]
