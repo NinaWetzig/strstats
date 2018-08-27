@@ -125,33 +125,58 @@ compare_call_to_Allele <- function(Run_01_file, Profiles_file, global_samples_fi
   combined_table$Allel_1 <- as.numeric(as.character(combined_table$Allel_1))
   combined_table$Allel_2 <- as.numeric(as.character(combined_table$Allel_2))
 
-  #neue Spalte für combined_table, diese Spalte heißt test. Wenn das call-Allel mit einem der korrekten Allele übereinstimmt, steht in der Spalte ein true, sonst ein wrong
+  #neue Spalte für combined_table, diese Spalte heißt Result. Wenn das call-Allel mit einem der korrekten Allele übereinstimmt, steht in der Spalte ein true, sonst ein wrong
   for (i in 1:nrow(combined_table)) {
-    if (combined_table$call_Allele[i] == combined_table$Allel_1[i] | combined_table$call_Allele[i] == combined_table$Allel_2[i]) {combined_table$test[i] = "true"} 
-    else if (combined_table$call_Allele[i] == combined_table$Allel_1[i] - 1 | combined_table$call_Allele[i] == combined_table$Allel_2[i] -1) {combined_table$test[i] = "stutter"}
-    else {combined_table$test[i] = "LN"}
+    if (combined_table$call_Allele[i] == combined_table$Allel_1[i] | combined_table$call_Allele[i] == combined_table$Allel_2[i]) {combined_table$Result[i] = "SN"} 
+    else if (combined_table$call_Allele[i] == combined_table$Allel_1[i] - 1 | combined_table$call_Allele[i] == combined_table$Allel_2[i] -1) {combined_table$Result[i] = "stutter"}
+    else {combined_table$Result[i] = "LN"}
   }
   return(combined_table)
 }
 
-#combined_table$Reads <- as.numeric(as.character(combined_table$Reads))
-
-#x <- group_by(combined_table, Marker, Patient)
-#y <- summarise(x, Reads =sum(combined_table[which(combined_table[,1]>30, 2])) 
 
 #Depth of Coverage
-DoC <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample, Marker = combined_table$Marker), FUN = function(x) {sum = sum(x)})
-colnames(DoC) = c("Run", "Sample", "Marker", "DoC")
- 
-#Summe der Reads pro call_Allel, Marker und Sample
-#agg_call_Allel <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample, Marker = combined_table$Marker,call_Allel = combined_table$call_Allele,  Allel1 = combined_table$Allel_1, Allel2 = combined_table$Allel_2, Test = combined_table$test), FUN = function(x) {sum = sum(x)})
-#colnames(agg_call_Allel) = c("call_Allel", "Run", "Sample", "Marker","Allel1", "Allel2", "Test", "Read_Summe" )
+DoC_function <- function(combined_table) {
+  DoC <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample, Marker = combined_table$Marker), FUN = function(x) {sum = sum(x)})
+  colnames(DoC) = c("Run", "Sample", "Marker", "DoC")
+  return(DoC)
+}
 
-#löscht ] und Zahlen in der Tabelle, damit die Pattern verglichen werden können. 
-profiles$Marker <- gsub(pattern = "[[:punct:]]", replacement="", x = profiles$Marker)
-profiles$Marker <- gsub(pattern = "[0-9]", replacement="", x = profiles$Marker)
 
-#z <-  y[y$Test == "stutter", y$Read_Summe] / y[y$Test == "true", y$Read_Summe]
+#erstellt Tabelle, die call-Allele mit korrekten Allelen vergleicht und mit SN, LN, stutter oder true bennent
+Allele_function <- function(combined_table) {
+  #erstellt eine Tabelle, nur aus den Allelen mit SN. Ordnet die Tabelle nach Reads (die höchsten und zweithöchsten Reads)
+  #diese Tabelle enthält nun alle richtigen true Allele 
+  combined_table_true <- combined_table[combined_table$Result == "SN", ]
+  combined_table_true <-  group_by(combined_table_true, Marker, Sample, call_Allele) %>%  mutate(rank = rank(desc(Reads))) %>% arrange(rank) %>% filter(rank <= 1)
+  combined_table_true$Result <- gsub(pattern = "SN", replacement="true", x = combined_table_true$Result)
+  combined_table_true <- select(combined_table_true, -rank)
+  
+  #ersetzt die SN in combined_table, die laut combined_table_true, eigentlich "true" sein müssten.
+  Allel_table <- left_join(combined_table,combined_table_true, by=c("Run", "Sample", "Marker","call_Allele","Pattern", "Quality", "Reads", "Variants", "Patient","Allel_1","Allel_2")) %>% mutate(Result=coalesce(Result.y,Result.x)) %>% select(-Result.x,-Result.y)
 
-#Sortiert die combined_table aufsteigend nach Run, Sample, Marker und absteigend nach Reads
-combined_table <- combined_table[order(combined_table$Run, combined_table$Sample, combined_table$Marker, -combined_table$Reads),]
+  #löscht ] und Zahlen in der Tabelle, damit die Pattern verglichen werden können. 
+  Allel_table$Pattern2 <- gsub(pattern = "[[:punct:]]", replacement="", x = Allel_table$Pattern) 
+  Allel_table$Pattern2 <- gsub(pattern = "[0-9]", replacement="", x = Allel_table$Pattern2)
+
+  #Sortiert die combined_table aufsteigend nach Run, Sample, Marker und absteigend nach Reads
+  Allel_table <- Allel_table[order(Allel_table$Run, Allel_table$Sample, Allel_table$Marker, -Allel_table$Reads),]
+
+  # Diese Tabelle enthält jetzt die vollständige Spalte Result mit Sn, LN, stutter und true
+  SN_LN_stutter_true_table <- as.data.frame(do.call("rbind",(by(Allel_table, INDICES = list(Sample = Allel_table$Sample, Marker = Allel_table$Marker), function(x){
+    # find stutter patterns
+    spatterns = subset(x, Result == "stutter")$Pattern2
+    for (spattern in spatterns){
+    
+    has_true_pattern = (subset(x, Pattern2 == spattern & Result == "true") %>% nrow) > 0
+      if (!has_true_pattern){
+        x$Result[x$Result == "stutter" & x$Pattern2 == spattern] = "SN"
+      }
+   }
+    return(x)
+   # find stutter pattern
+   # check stutter and true pattern are equal
+   # set stutter to SN
+  }))))
+  return(SN_LN_stutter_true_table)
+}
