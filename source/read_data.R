@@ -1,6 +1,9 @@
 library(reshape)
 library(tidyr)
 library(dplyr)
+library(ggplot2)
+
+#!!!VORSICHT!!! combined_table$Result <- apply(combined_table HIERBEI WERDEN INDICES BENUTZT!!!
 
 #' params: profile_file - a profile csv file
 #' return: data.frame of the prfile file
@@ -89,13 +92,12 @@ create_csv <- function(j1in,j2in){
   return("results/J_STR_3.csv")
 }
 
-
-compare_call_to_Allele <- function(Run_01_file, Profiles_file, global_samples_file) {
-  
+combine_Allele <- function(Run_01_file,Profiles_file,global_samples_file) {
   Run_01_file <- "/home/nina/Downloads/Run_01_short.out"
+  #Run_01_file <- "/home/nina/projects/strstats/data/Run_03.out"
   Profiles_file <- "/home/nina/projects/strstats/resources/profiles.csv" 
   global_samples_file <- "/home/nina/projects/strstats/resources/global_sample_overview_forensic.csv"
-  
+
   #einlesen der Run_01_short Tabelle
   Run_01_short <- read.csv(Run_01_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
   colnames(Run_01_short) <- c("Run", "Sample", "Marker", "call_Allele", "Pattern", "Quality", "Reads", "Variants")
@@ -104,7 +106,7 @@ compare_call_to_Allele <- function(Run_01_file, Profiles_file, global_samples_fi
   Profiles <- read.csv(Profiles_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
   Profiles_melt <- melt(Profiles, id = "Marker")
   colnames(Profiles_melt) = c("Marker", "Patient", "Allel")
-  
+
   #einlesen der global_sample Tabelle
   global_samples <- read.csv(global_samples_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
   
@@ -121,30 +123,28 @@ compare_call_to_Allele <- function(Run_01_file, Profiles_file, global_samples_fi
   
   # Vereint die Tabellen Run_01 und Profiles_cast miteinamder, sodass alle Spalten der Run_01 Tabelle erhalten bleiben und Allel1 und Allel2 dazu kommen
   combined_table <- inner_join(Run_01_short, Profiles_cast)
-  # Allel1 und Allel2 Spalten von character zu numeric
-  combined_table$Allel_1 <- as.numeric(as.character(combined_table$Allel_1))
-  combined_table$Allel_2 <- as.numeric(as.character(combined_table$Allel_2))
-
-  #neue Spalte für combined_table, diese Spalte heißt Result. Wenn das call-Allel mit einem der korrekten Allele übereinstimmt, steht in der Spalte ein true, sonst ein wrong
-  for (i in 1:nrow(combined_table)) {
-    if (combined_table$call_Allele[i] == combined_table$Allel_1[i] | combined_table$call_Allele[i] == combined_table$Allel_2[i]) {combined_table$Result[i] = "SN"} 
-    else if (combined_table$call_Allele[i] == combined_table$Allel_1[i] - 1 | combined_table$call_Allele[i] == combined_table$Allel_2[i] -1) {combined_table$Result[i] = "stutter"}
-    else {combined_table$Result[i] = "LN"}
-  }
   return(combined_table)
 }
 
 
-#Depth of Coverage
-DoC_function <- function(combined_table) {
-  DoC <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample, Marker = combined_table$Marker), FUN = function(x) {sum = sum(x)})
-  colnames(DoC) = c("Run", "Sample", "Marker", "DoC")
-  return(DoC)
-}
+compare_Allele <- function(combined_table)  {
+  # Exclude Amelogenin
+  combined_table <- combined_table[combined_table$Marker != "Amelogenin", ]
 
+  # Allel1 und Allel2 Spalten von character zu numeric
+  combined_table$Allel_1 <- as.numeric(as.character(combined_table$Allel_1))
+  combined_table$Allel_2 <- as.numeric(as.character(combined_table$Allel_2))
 
-#erstellt Tabelle, die call-Allele mit korrekten Allelen vergleicht und mit SN, LN, stutter oder true bennent
-Allele_function <- function(combined_table) {
+  # Die Spalte Result wird erstellt. In dieser Spalte soll zwischen SN, LN, stutter und true unterschieden werden. Hier wird aber zunächst auch alles SN
+  #genannt, was später noch teilweise zu true wird und alles wird stutter genannt, auch wenn es später noch zu SN werden soll
+  combined_table$Result <- apply(combined_table, 1 , FUN = function(x) {
+  if (x[4] == x[10] | x[4] == x[11]) {"SN"} 
+  else if (as.numeric(x[4]) == as.numeric(x[10])-1 | as.numeric(x[4]) == as.numeric(x[11])-1) {"stutter"}
+  else {"LN"}
+  }) 
+
+  #erstellt Tabelle, die call-Allele mit korrekten Allelen vergleicht und mit SN, LN, stutter oder true bennent
+
   #erstellt eine Tabelle, nur aus den Allelen mit SN. Ordnet die Tabelle nach Reads (die höchsten und zweithöchsten Reads)
   #diese Tabelle enthält nun alle richtigen true Allele 
   combined_table_true <- combined_table[combined_table$Result == "SN", ]
@@ -156,21 +156,21 @@ Allele_function <- function(combined_table) {
   Allel_table <- left_join(combined_table,combined_table_true, by=c("Run", "Sample", "Marker","call_Allele","Pattern", "Quality", "Reads", "Variants", "Patient","Allel_1","Allel_2")) %>% mutate(Result=coalesce(Result.y,Result.x)) %>% select(-Result.x,-Result.y)
 
   #löscht ] und Zahlen in der Tabelle, damit die Pattern verglichen werden können. 
-  Allel_table$Pattern2 <- gsub(pattern = "[[:punct:]]", replacement="", x = Allel_table$Pattern) 
-  Allel_table$Pattern2 <- gsub(pattern = "[0-9]", replacement="", x = Allel_table$Pattern2)
+  Allel_table$Pattern_short <- gsub(pattern = "[[:punct:]]", replacement="", x = Allel_table$Pattern) 
+  Allel_table$Pattern_short <- gsub(pattern = "[0-9]", replacement="", x = Allel_table$Pattern_short)
 
   #Sortiert die combined_table aufsteigend nach Run, Sample, Marker und absteigend nach Reads
   Allel_table <- Allel_table[order(Allel_table$Run, Allel_table$Sample, Allel_table$Marker, -Allel_table$Reads),]
 
   # Diese Tabelle enthält jetzt die vollständige Spalte Result mit Sn, LN, stutter und true
   SN_LN_stutter_true_table <- as.data.frame(do.call("rbind",(by(Allel_table, INDICES = list(Sample = Allel_table$Sample, Marker = Allel_table$Marker), function(x){
-    # find stutter patterns
-    spatterns = subset(x, Result == "stutter")$Pattern2
-    for (spattern in spatterns){
+  # find stutter patterns
+  spatterns = subset(x, Result == "stutter")$Pattern_short
+  for (spattern in spatterns){
     
-    has_true_pattern = (subset(x, Pattern2 == spattern & Result == "true") %>% nrow) > 0
+    has_true_pattern = (subset(x, Pattern_short == spattern & Result == "true") %>% nrow) > 0
       if (!has_true_pattern){
-        x$Result[x$Result == "stutter" & x$Pattern2 == spattern] = "SN"
+        x$Result[x$Result == "stutter" & x$Pattern_short == spattern] = "SN"
       }
    }
     return(x)
@@ -180,3 +180,36 @@ Allele_function <- function(combined_table) {
   }))))
   return(SN_LN_stutter_true_table)
 }
+  
+
+DoC_SCR <- function(combined_table, SN_LN_stutter_true_table) {
+  #Depth of Coverage
+  DoC <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Marker = combined_table$Marker), FUN = function(x) {sum = sum(x)})
+  colnames(DoC) = c("Run",  "Marker", "DoC")
+
+  #diese Tabelle soll nur die Spalten enthalten, die für die SCR und DoC Berechnung benötigt werden
+  SCR_Doc_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+  SCR_Doc_table <- do.call(data.frame, SCR_Doc_table)
+  colnames(SCR_Doc_table) <- c("Run", "Marker", "Result", "Reads")
+  #Fügt Doc als Spalte hinzu
+  SCR_Doc_table <- left_join(SCR_Doc_table,DoC)
+  #neue Spalte mit SCR
+  SCR_Doc_table$SCR <- SCR_Doc_table$Reads / SCR_Doc_table$DoC
+  return(SCR_Doc_table)
+}  
+  
+#Berechnung der Stutter Ratio
+Stutter_Ratio <- filter(SCR_Doc_table, Result == "true" | Result == "stutter")
+Stutter_Ratio$St_ratio <- Stutter_Ratio[Stutter_Ratio$Result == "true","Reads" ]/Stutter_Ratio[Stutter_Ratio$Result == "stutter","Reads" ]
+
+#Berechnung der Allele Coverage Ratio (ACR)
+Allele_Cov_Ratio <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Sample = SN_LN_stutter_true_table$Sample, Marker = SN_LN_stutter_true_table$Marker,call_Allele = SN_LN_stutter_true_table$call_Allele, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+#Allele_Cov_Ratio <- filter(SN_LN_stutter_true_table, Result == "true")
+Allele_Cov_Ratio$AC_ratio <- Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == max(Allele_Cov_Ratio$call_Allele), "Reads"] / Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == min(Allele_Cov_Ratio$call_Allele), "Reads"] 
+
+
+#SN_LN_stutter_true_table$ID <- c(1:nrow(SN_LN_stutter_true_table))
+
+#meĺt_data <- melt(SN_LN_stutter_true_table, id ="ID")
+
+#ggplot_data <- data.frame(SN_LN_stutter_true_table$ID, SN_LN_stutter_true_table$Run, SN_LN_stutter_true_table$Sample, SN_LN_stutter_true_table$Marker, SN_LN_stutter_true_table$)
