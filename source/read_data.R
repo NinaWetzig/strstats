@@ -93,10 +93,10 @@ create_csv <- function(j1in,j2in){
 }
 
 combine_Allele <- function(Run_01_file,Profiles_file,global_samples_file) {
-  Run_01_file <- "/home/nina/Downloads/Run_01_short.out"
+  #Run_01_file <- "/home/nina/Downloads/Run_01_short.out"
   #Run_01_file <- "/home/nina/projects/strstats/data/Run_03.out"
-  Profiles_file <- "/home/nina/projects/strstats/resources/profiles.csv" 
-  global_samples_file <- "/home/nina/projects/strstats/resources/global_sample_overview_forensic.csv"
+  #Profiles_file <- "/home/nina/projects/strstats/resources/profiles.csv" 
+  #global_samples_file <- "/home/nina/projects/strstats/resources/global_sample_overview_forensic.csv"
 
   #einlesen der Run_01_short Tabelle
   Run_01_short <- read.csv(Run_01_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
@@ -127,7 +127,9 @@ combine_Allele <- function(Run_01_file,Profiles_file,global_samples_file) {
 }
 
 
-compare_Allele <- function(combined_table)  {
+compare_Allele <- function(Run_01_file,Profiles_file,global_samples_file)  {
+  
+  combined_table = combine_Allele(Run_01_file,Profiles_file,global_samples_file)
   # Exclude Amelogenin
   combined_table <- combined_table[combined_table$Marker != "Amelogenin", ]
 
@@ -182,7 +184,11 @@ compare_Allele <- function(combined_table)  {
 }
   
 
-DoC_SCR <- function(combined_table, SN_LN_stutter_true_table) {
+DoC_SCR <- function(Run_01_file,Profiles_file,global_samples_file) {
+  
+  combined_table = combine_Allele(Run_01_file,Profiles_file,global_samples_file)
+  SN_LN_stutter_true_table = compare_Allele(Run_01_file,Profiles_file,global_samples_file)
+  
   #Depth of Coverage
   DoC <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Marker = combined_table$Marker), FUN = function(x) {sum = sum(x)})
   colnames(DoC) = c("Run",  "Marker", "DoC")
@@ -199,13 +205,13 @@ DoC_SCR <- function(combined_table, SN_LN_stutter_true_table) {
 }  
   
 #Berechnung der Stutter Ratio
-Stutter_Ratio <- filter(SCR_Doc_table, Result == "true" | Result == "stutter")
-Stutter_Ratio$St_ratio <- Stutter_Ratio[Stutter_Ratio$Result == "true","Reads" ]/Stutter_Ratio[Stutter_Ratio$Result == "stutter","Reads" ]
+#Stutter_Ratio <- filter(SCR_Doc_table, Result == "true" | Result == "stutter")
+#Stutter_Ratio$St_ratio <- Stutter_Ratio[Stutter_Ratio$Result == "true","Reads" ]/Stutter_Ratio[Stutter_Ratio$Result == "stutter","Reads" ]
 
 #Berechnung der Allele Coverage Ratio (ACR)
-Allele_Cov_Ratio <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Sample = SN_LN_stutter_true_table$Sample, Marker = SN_LN_stutter_true_table$Marker,call_Allele = SN_LN_stutter_true_table$call_Allele, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+#Allele_Cov_Ratio <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Sample = SN_LN_stutter_true_table$Sample, Marker = SN_LN_stutter_true_table$Marker,call_Allele = SN_LN_stutter_true_table$call_Allele, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
 #Allele_Cov_Ratio <- filter(SN_LN_stutter_true_table, Result == "true")
-Allele_Cov_Ratio$AC_ratio <- Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == max(Allele_Cov_Ratio$call_Allele), "Reads"] / Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == min(Allele_Cov_Ratio$call_Allele), "Reads"] 
+#Allele_Cov_Ratio$AC_ratio <- Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == max(Allele_Cov_Ratio$call_Allele), "Reads"] / Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == min(Allele_Cov_Ratio$call_Allele), "Reads"] 
 
 
 #SN_LN_stutter_true_table$ID <- c(1:nrow(SN_LN_stutter_true_table))
