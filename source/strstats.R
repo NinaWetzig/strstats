@@ -22,6 +22,7 @@ option_list = list(
               help="profiles tabel with patients", metavar="character"),
   make_option(c("-g", "--global_sample"), type="character", default=NULL, 
               help="table with patients and samples", metavar="character")
+  
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
@@ -58,9 +59,24 @@ if (!is.null(opt$rawinput)){
 
 
 #Für die Funktion zur Zuordnung der Marker, Samples und Patienten und zur Abgleichung der callAllele mit den korrekten Allelen
+
+#erstellt combined-Table aus der Run Tabelle und der global-Sample Tabelle
 if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
-  print("callAllele/trueAllele")
-  compare_call_to_Allele(opt$Run01, opt$profilefile, opt$global_sample)
+  print("combineAllele")
+  combine_Allele(opt$Run01, opt$profilefile, opt$global_sample)
+} else {}
+
+#Vergleicht die call Allele mit den korrekten Allelen und schreibt die Resultate in eine neue Spalte
+if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+  print("compareAllele")
+  compare_Allele(opt$Run01, opt$profilefile, opt$global_sample)
+} else {}
+
+#Berechnet DoC und SCR
+if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+  print("DoC-SCR")
+  DoC_SCR(opt$Run01, opt$profilefile, opt$global_sample)
 } else {}
 
 #source/strstats.R -u /home/nina/Downloads/Run_01_short.out -o resources/profiles.csv -g resources/global_sample_overview_forensic.csv
+
