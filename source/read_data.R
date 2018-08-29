@@ -140,9 +140,13 @@ compare_Allele <- function(Run_01_file,Profiles_file,global_samples_file)  {
   # Die Spalte Result wird erstellt. In dieser Spalte soll zwischen SN, LN, stutter und true unterschieden werden. Hier wird aber zunächst auch alles SN
   #genannt, was später noch teilweise zu true wird und alles wird stutter genannt, auch wenn es später noch zu SN werden soll
   combined_table$Result <- apply(combined_table, 1 , FUN = function(x) {
-  if (x[4] == x[10] | x[4] == x[11]) {"SN"} 
-  else if (as.numeric(x[4]) == as.numeric(x[10])-1 | as.numeric(x[4]) == as.numeric(x[11])-1) {"stutter"}
-  else {"LN"}
+      if (as.numeric(x[["call_Allele"]]) == as.numeric(x[["Allel_1"]]) || as.numeric(x[["call_Allele"]]) == as.numeric(x[["Allel_2"]])) {
+      ret = "SN"
+    } else if (as.numeric(x[4]) == as.numeric(x[10])-1 || as.numeric(x[4]) == as.numeric(x[11])-1) {
+      ret = "stutter"
+    } else {
+      ret = "LN"
+    }
   }) 
 
   #erstellt Tabelle, die call-Allele mit korrekten Allelen vergleicht und mit SN, LN, stutter oder true bennent
@@ -205,13 +209,13 @@ DoC_SCR <- function(Run_01_file,Profiles_file,global_samples_file) {
 }  
   
 #Berechnung der Stutter Ratio
-#Stutter_Ratio <- filter(SCR_Doc_table, Result == "true" | Result == "stutter")
-#Stutter_Ratio$St_ratio <- Stutter_Ratio[Stutter_Ratio$Result == "true","Reads" ]/Stutter_Ratio[Stutter_Ratio$Result == "stutter","Reads" ]
+Stutter_Ratio <- filter(SCR_Doc_table, Result == "true" | Result == "stutter")
+Stutter_Ratio$St_ratio <- Stutter_Ratio[Stutter_Ratio$Result == "true","Reads" ]/Stutter_Ratio[Stutter_Ratio$Result == "stutter","Reads" ]
 
 #Berechnung der Allele Coverage Ratio (ACR)
-#Allele_Cov_Ratio <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Sample = SN_LN_stutter_true_table$Sample, Marker = SN_LN_stutter_true_table$Marker,call_Allele = SN_LN_stutter_true_table$call_Allele, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
-#Allele_Cov_Ratio <- filter(SN_LN_stutter_true_table, Result == "true")
-#Allele_Cov_Ratio$AC_ratio <- Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == max(Allele_Cov_Ratio$call_Allele), "Reads"] / Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == min(Allele_Cov_Ratio$call_Allele), "Reads"] 
+Allele_Cov_Ratio <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Sample = SN_LN_stutter_true_table$Sample, Marker = SN_LN_stutter_true_table$Marker, Read = SN_LN_stutter_true_table$Reads, call_Allele = SN_LN_stutter_true_table$call_Allele, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+Allele_Cov_Ratio <- filter(SN_LN_stutter_true_table, Result == "true")
+Allele_Cov_Ratio$AC_ratio <- Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == max(Allele_Cov_Ratio$call_Allele), "Reads"] / Allele_Cov_Ratio[Allele_Cov_Ratio$call_Allele == min(Allele_Cov_Ratio$call_Allele), "Reads"] 
 
 
 #SN_LN_stutter_true_table$ID <- c(1:nrow(SN_LN_stutter_true_table))
