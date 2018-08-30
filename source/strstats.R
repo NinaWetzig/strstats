@@ -72,11 +72,18 @@ if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample
   compare_Allele(opt$Run01, opt$profilefile, opt$global_sample)
 } else {}
 
-#Berechnet DoC und SCR
+#Berechnet DoC und SCR und StR
 if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
   print("DoC-SCR")
-  DoC_SCR(opt$Run01, opt$profilefile, opt$global_sample)
+  DoC_SCR_StR(opt$Run01, opt$profilefile, opt$global_sample)
 } else {}
+
+#Berechnet ACR
+if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+  print("ACR")
+  ACR_function(opt$Run01, opt$profilefile, opt$global_sample)
+} else {}
+
 
 #source/strstats.R -u /home/nina/Downloads/Run_01_short.out -o resources/profiles.csv -g resources/global_sample_overview_forensic.csv
 
