@@ -244,78 +244,85 @@ ACR_function <- function(Run_01_file,Profiles_file,global_samples_file) {
                     })
                ) %>% as.data.frame
   result = list()
-  return(ACR)
+  return(ACR_table)
 }        
   
-ggplot(data = SCR_Doc_table, aes(x = Run, y = DoC, fill = Marker, order = Marker, ymin=DoC, ymax=DoC)) + geom_bar(stat = "identity", position = position_dodge(width=-0.9)) + geom_errorbar(width=.2, position=position_dodge(-0.9)) + geom_text(aes(label=DoC), vjust = 0, position=position_dodge(-0.9))
+#gplot(data = SCR_Doc_table, aes(x = Run, y = DoC, fill = Marker, order = Marker, ymin=DoC, ymax=DoC)) + geom_bar(stat = "identity", position = position_dodge(width=-0.9)) + geom_errorbar(width=.2, position=position_dodge(-0.9)) + geom_text(aes(label=DoC), vjust = 0, position=position_dodge(-0.9))
 
-heatmap_table <- data.frame(combined_table$Run, combined_table$Sample, combined_table$Marker, combined_table$Reads)
-colnames(heatmap_table) <- c("Run", "Sample", "Marker", "Reads")
+create_plots <- function(Run_01_file,Profiles_file,global_samples_file) {
+  
+  ACR_table = ACR_function(Run_01_file,Profiles_file,global_samples_file)
+  combined_table = combine_Allele(Run_01_file,Profiles_file,global_samples_file)
 
-runs <- levels(heatmap_table$Run)
-
-for (run in runs){
-  # Für alle Run von 01 bis 10, also die, die in runs gespeichert sind
-  data <- heatmap_table[heatmap_table$Run == run, ]
-  # data wird alles genannt das in der Datei "input" unter Run mit "run" abgelegt war
+  heatmap_table <- data.frame(combined_table$Run, combined_table$Sample, combined_table$Marker, combined_table$Reads)
+  colnames(heatmap_table) <- c("Run", "Sample", "Marker", "Reads")
   
-  doc_x <- data[data$Marker == "Amelogenin", ]
-  # hier wird gespeichert was aus "data" in der Marker-Spalte "Amelogenin" hat
+  #Variable, die angibt wo die Grafiken gespeichert werden
+  source_file <- "/home/nina/projects/strstats/results/"
   
-  doc_x <- cast(doc_x, Sample ~ Marker)
-  # hier wird die doc_x Tabelle neu organisiert? (Marker gegen Sample)
+  runs <- levels(heatmap_table$Run)
   
-  doc_x <- doc_x[,-1]
-  # doc_x ohne die erste Spalte (ohne Sample)
+  for (run in runs){
+    # Für alle Run von 01 bis 10, also die, die in runs gespeichert sind
+    data <- heatmap_table[heatmap_table$Run == run, ]
+    # data wird alles genannt das in der Datei "input" unter Run mit "run" abgelegt war
+    
+    doc_x <- data[data$Marker == "Amelogenin", ]
+    # hier wird gespeichert was aus "data" in der Marker-Spalte "Amelogenin" hat
+    
+    doc_x <- cast(doc_x, Sample ~ Marker)
+    # hier wird die doc_x Tabelle neu organisiert? (Marker gegen Sample)
+    
+    doc_x <- doc_x[,-1]
+    # doc_x ohne die erste Spalte (ohne Sample)
+    
+    doc_a <- filter(data, Marker != "Amelogenin")
+    # filtert in data nach Zeilen, die in der Marker-Spalte nicht Effective, Filtered oder Amelogenin haben.
+    
+    doc_a <- cast(doc_a, Sample ~ Marker)
+    # hier wird die doc_a Tabelle neu organisiert? (Marker gegen Sample)
+    
+    doc_m <- doc_a[,-1]
+    # doc_a ohne die erste Spalte (ohne Sample)
+    
+    rownames(doc_m) <- doc_a[,1]
+    # erste Spalte von doc_a wird als "rownames(doc_m)" gespeichert (Sample ist jetzt "rownames(doc_m)"?)
+    
+    doc_m <- data.matrix(doc_m)
+    # erstellt Matrix aus doc_m
+    
+    doc_m <- doc_m[,order(colSums(doc_m), decreasing=TRUE)]
+    # ordnet die Spalten nach Spaltensumme in absteigender Reihenfolge
+    
+    doc_m <- cbind(doc_m, doc_x)
+    # verbindet doc_m und doc_x zu einer Matrix/Tabelle
+    
+    colnames(doc_m)[length(colnames(doc_m))] <- "Amelogenin" 
+    # ?
+    
+    # Pfad anpassen
+    #write.table(doc_m, file = paste("~/Studium/Praktikum/Praktikums_Uebung/", run, "_DoC.csv", sep = ""), append = FALSE, quote = TRUE, sep = ",", eol = "\n", na = "NA", dec = ".", col.names = NA, qmethod = c("escape", "double"),fileEncoding = "")
+    # Tabelle aus doc_m (also der doc_m die jetzt auch doc_x enthält)
+    # eine Tabelle für jedes der run (Schleife)
+    
+    doc_m <- doc_m[order(rowSums(doc_m), decreasing=FALSE),]
+    # ordner die Zeilen nach Zeilensummen in absteigender Reihenfolge
+    
+    # Pfad anpassen
+    pdf(paste(source_file, run, "_DoC.pdf", sep = ""), onefile = FALSE)
+    aheatmap(doc_m, Rowv=NA, Colv=NA, color = "-RdYlBu2:100", main = run)
+    # eine heatmap aus doc_m wird erstellt (Farben je nach Readzahl?)
+    dev.off()
+  }
   
-  doc_a <- filter(data, Marker != "Amelogenin")
-  # filtert in data nach Zeilen, die in der Marker-Spalte nicht Effective, Filtered oder Amelogenin haben.
+  ACR_table$Marker <- as.factor(ACR_table$Marker)
   
-  doc_a <- cast(doc_a, Sample ~ Marker)
-  # hier wird die doc_a Tabelle neu organisiert? (Marker gegen Sample)
+  g <- ggplot(ACR_table, aes(x=reorder(Marker, ACR, FUN = median), y=ACR)) + geom_boxplot(color = "black", fill = "dodgerblue2")  
+  g <- g + xlab("Marker") + geom_hline(yintercept=0.6, color =  "red")
+  g <- g + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Allele Coverage Ratio per Marker") 
+  g <- g + stat_summary(fun.y=mean, geom="point", color="white", fill="white") 
+  g <- g + coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1))
   
-  doc_m <- doc_a[,-1]
-  # doc_a ohne die erste Spalte (ohne Sample)
-  
-  rownames(doc_m) <- doc_a[,1]
-  # erste Spalte von doc_a wird als "rownames(doc_m)" gespeichert (Sample ist jetzt "rownames(doc_m)"?)
-  
-  doc_m <- data.matrix(doc_m)
-  # erstellt Matrix aus doc_m
-  
-  doc_m <- doc_m[,order(colSums(doc_m), decreasing=TRUE)]
-  # ordnet die Spalten nach Spaltensumme in absteigender Reihenfolge
-  
-  doc_m <- cbind(doc_m, doc_x)
-  # verbindet doc_m und doc_x zu einer Matrix/Tabelle
-  
-  colnames(doc_m)[length(colnames(doc_m))] <- "Amelogenin" 
-  # ?
-  
-  # Pfad anpassen
-  #write.table(doc_m, file = paste("~/Studium/Praktikum/Praktikums_Uebung/", run, "_DoC.csv", sep = ""), append = FALSE, quote = TRUE, sep = ",", eol = "\n", na = "NA", dec = ".", col.names = NA, qmethod = c("escape", "double"),fileEncoding = "")
-  # Tabelle aus doc_m (also der doc_m die jetzt auch doc_x enthält)
-  # eine Tabelle für jedes der run (Schleife)
-  
-  doc_m <- doc_m[order(rowSums(doc_m), decreasing=FALSE),]
-  # ordner die Zeilen nach Zeilensummen in absteigender Reihenfolge
-  
-  # Pfad anpassen
-  #pdf(paste("~/Studium/Praktikum/Praktikums_Uebung/", run, "_DoC.pdf", sep = ""), onefile = FALSE)
-  print(aheatmap(doc_m, Rowv=NA, Colv=NA, color = "-RdYlBu2:100", main = run))
-  # eine heatmap aus doc_m wird erstellt (Farben je nach Readzahl?)
-  
-  #dev.off()
-}
-
-ACR_table$Marker <- as.factor(ACR_table$Marker)
-
-
-g <- ggplot(ACR_table, aes(x=reorder(Marker, ACR, FUN = median), y=ACR)) + geom_boxplot(color = "black", fill = "dodgerblue2")  
-g <- g + xlab("Marker") + geom_hline(yintercept=0.6, color =  "red")
-g <- g + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Allele Coverage Ratio per Marker") 
-g <- g + stat_summary(fun.y=mean, geom="point", color="white", fill="white") 
-g <- g + coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1))
-
-
+  ggsave("ACR.pdf", plot = g, path = source_file)
+}  
   
