@@ -84,6 +84,11 @@ if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample
   ACR_function(opt$Run01, opt$profilefile, opt$global_sample)
 } else {}
 
+#erstellt plots
+if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+  print("plots")
+  create_plots(opt$Run01, opt$profilefile, opt$global_sample)
+} else {}
 
 #source/strstats.R -u /home/nina/Downloads/Run_01_short.out -o resources/profiles.csv -g resources/global_sample_overview_forensic.csv
 
