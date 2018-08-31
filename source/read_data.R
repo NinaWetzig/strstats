@@ -122,6 +122,10 @@ combine_Allele <- function(Run_01_file,Profiles_file,global_samples_file) {
   
   # Vereint die Tabellen Run_01 und Profiles_cast miteinamder, sodass alle Spalten der Run_01 Tabelle erhalten bleiben und Allel1 und Allel2 dazu kommen
   combined_table <- inner_join(Run_01_short, Profiles_cast)
+  
+  #Variable, die angibt wo die Grafiken gespeichert werden
+  source_file <- "/home/nina/projects/strstats/results/"
+  write.csv(combined_table, file=paste(source_file, "combined_table.csv", sep=""))
   return(combined_table)
 }
 
@@ -184,6 +188,10 @@ compare_Allele <- function(Run_01_file,Profiles_file,global_samples_file)  {
    # check stutter and true pattern are equal
    # set stutter to SN
   }))))
+  
+  source_file <- "/home/nina/projects/strstats/results/"
+  write.csv(SN_LN_stutter_true_table, file=paste(source_file, "Allele_Result_table.csv", sep=""))
+  
   return(SN_LN_stutter_true_table)
 }
   
@@ -208,10 +216,13 @@ DoC_SCR_StR <- function(Run_01_file,Profiles_file,global_samples_file) {
  
   #Berechnung der Stutter Ratio
   #Stutter_Ratio <- filter(SCR_Doc_table, Result == "true" | Result == "stutter")
-  SCR_Doc_table$St_ratio <- SCR_Doc_table[SCR_Doc_table$Result == "true","Reads" ]/SCR_Doc_table[SCR_Doc_table$Result == "stutter","Reads" ]
+  SCR_Doc_table$St_ratio <- SCR_Doc_table[SCR_Doc_table$Result == "stutter","Reads" ]/SCR_Doc_table[SCR_Doc_table$Result == "true","Reads" ]
   
   #Berechnung SN Ratio
-  SCR_Doc_table$SN_ratio <- SCR_Doc_table[SCR_Doc_table$Result == "SN","Reads" ]/sum(SCR_Doc_table[SCR_Doc_table$Result == "stutter","Reads" ], SCR_Doc_table[SCR_Doc_table$Result == "true","Reads" ], SCR_Doc_table[SCR_Doc_table$Result == "SN","Reads" ])
+  SCR_Doc_table$SN_ratio <- SCR_Doc_table[SCR_Doc_table$Result == "SN","Reads" ]/(SCR_Doc_table[SCR_Doc_table$Result == "stutter","Reads" ] + SCR_Doc_table[SCR_Doc_table$Result == "true","Reads" ] + SCR_Doc_table[SCR_Doc_table$Result == "SN","Reads" ])
+  
+  source_file <- "/home/nina/projects/strstats/results/"
+  write.csv(SCR_Doc_table, file=paste(source_file, "SCR_DoC_table.csv", sep=""))
   
   return(SCR_Doc_table)
 }  
@@ -243,11 +254,15 @@ ACR_function <- function(Run_01_file,Profiles_file,global_samples_file) {
                       return(x)
                     })
                ) %>% as.data.frame
-  result = list()
+  #result = list()
+  
+  source_file <- "/home/nina/projects/strstats/results/"
+  write.csv(ACR_table, file=paste(source_file, "ACR_table.csv", sep=""))
+  
   return(ACR_table)
 }        
   
-#gplot(data = SCR_Doc_table, aes(x = Run, y = DoC, fill = Marker, order = Marker, ymin=DoC, ymax=DoC)) + geom_bar(stat = "identity", position = position_dodge(width=-0.9)) + geom_errorbar(width=.2, position=position_dodge(-0.9)) + geom_text(aes(label=DoC), vjust = 0, position=position_dodge(-0.9))
+#ggplot(data = SCR_Doc_table, aes(x = Run, y = DoC, fill = Marker, order = Marker, ymin=DoC, ymax=DoC)) + geom_bar(stat = "identity", position = position_dodge(width=-0.9)) + geom_errorbar(width=.2, position=position_dodge(-0.9)) + geom_text(aes(label=DoC), vjust = 0, position=position_dodge(-0.9))
 
 create_plots <- function(Run_01_file,Profiles_file,global_samples_file) {
   
