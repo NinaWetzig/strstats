@@ -29,31 +29,30 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 print(opt)
 
-print("Lese datei:")
 
 #Tabelle mit den Profilen
-if (!is.null(opt$profile)){
-  print("Profiles:")
-  print(read_profile(opt$profile))
-} else {}
+#if (!is.null(opt$profile)){
+  #print("Profiles:")
+  #print(read_profile(opt$profile))
+#} else {}
 
 # Input-Tabelle zu beliebigem Sample
-if (!is.null(opt$jinput)){
-  print("J_input")
-  read_Jinput(opt$jinput)
-} else {}
+#if (!is.null(opt$jinput)){
+  #print("J_input")
+  #read_Jinput(opt$jinput)
+#} else {}
 
 #Kombiniert zwei Samples in einer csv-Tabelle
-if (!is.null(opt$jinput1) & !is.null(opt$jinput2)){ 
-  print("csv")
-  create_csv(opt$jinput1, opt$jinput2)
-} else {}
+#if (!is.null(opt$jinput1) & !is.null(opt$jinput2)){ 
+  #print("csv")
+  #create_csv(opt$jinput1, opt$jinput2)
+#} else {}
 
 #Berechnet Read-Summen
-if (!is.null(opt$rawinput)){
-  print("Tabellen:")
-  print(read_raw_input(opt$rawinput))
-} else{}
+#if (!is.null(opt$rawinput)){
+  #print("Tabellen:")
+  #print(read_raw_input(opt$rawinput))
+#} else{}
 
 #source/strstats.R -p resources/profiles.csv  -j data/Run_01/variant_calling/J1_STR.out -e data/Run_01/variant_calling/J1_STR.out -z data/Run_01/variant_calling/J2_STR.out -r /home/nina/Downloads/Run_01_short.out
 
@@ -61,22 +60,25 @@ if (!is.null(opt$rawinput)){
 #Für die Funktion zur Zuordnung der Marker, Samples und Patienten und zur Abgleichung der callAllele mit den korrekten Allelen
 
 #erstellt combined-Table aus der Run Tabelle und der global-Sample Tabelle
-if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
-  print("combineAllele")
-  combine_Allele(opt$Run01, opt$profilefile, opt$global_sample)
+if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){
+  combined_table <- combine_Allele(Run_01_file, Profiles_file, global_samples_file)
+  compare_table <- compare_Allele(combined_table)
+  
+  #print("combineAllele")
+  #combine_Allele(opt$Run01, opt$profilefile, opt$global_sample)
 } else {}
 
 #Vergleicht die call Allele mit den korrekten Allelen und schreibt die Resultate in eine neue Spalte
-if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
-  print("compareAllele")
-  compare_Allele(opt$Run01, opt$profilefile, opt$global_sample)
-} else {}
+#if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+#  print("compareAllele")
+#  compare_Allele(opt$Run01, opt$profilefile, opt$global_sample)
+#} else {}
 
 #Berechnet DoC und SCR und StR
-if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
-  print("DoC-SCR")
-  DoC_SCR_StR(opt$Run01, opt$profilefile, opt$global_sample)
-} else {}
+#if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+#  print("DoC-SCR")
+#  DoC_SCR_StR(opt$Run01, opt$profilefile, opt$global_sample)
+#} else {}
 
 #Berechnet ACR
 if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
@@ -90,5 +92,11 @@ if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample
   create_plots(opt$Run01, opt$profilefile, opt$global_sample)
 } else {}
 
-#source/strstats.R -u /home/nina/Downloads/Run_01_short.out -o resources/profiles.csv -g resources/global_sample_overview_forensic.csv
+#erstellt pie_charts
+if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+  print("pies")
+  create_pies(opt$Run01, opt$profilefile, opt$global_sample)
+} else {}
+
+#source/strstats.R -u /home/nina/projects/strstats/data/Run_01.out -o resources/profiles.csv -g resources/global_sample_overview_forensic.csv
 
