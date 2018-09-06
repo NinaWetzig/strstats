@@ -18,10 +18,12 @@ option_list = list(
               help="aggregates data frames and sums up the column 'Reads' per 'Marker' and per 'Marker' and 'Allele'.output = data frame", metavar="character"),
   make_option(c("-u", "--Run01"), type="character", default=NULL, 
               help="tabel with samples, marker", metavar="character"),
-  make_option(c("-o", "--profilefile"), type="character", default=NULL, 
+  make_option(c("-f", "--profilefile"), type="character", default=NULL, 
               help="profiles tabel with patients", metavar="character"),
   make_option(c("-g", "--global_sample"), type="character", default=NULL, 
-              help="table with patients and samples", metavar="character")
+              help="table with patients and samples", metavar="character"),
+  make_option(c("-o", "--output"), type="character", default=NULL, 
+              help="output directory", metavar="character")
   
 ); 
 
@@ -29,7 +31,7 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 print(opt)
 
-
+if(FALSE){
 #Tabelle mit den Profilen
 #if (!is.null(opt$profile)){
   #print("Profiles:")
@@ -55,20 +57,36 @@ print(opt)
 #} else{}
 
 #source/strstats.R -p resources/profiles.csv  -j data/Run_01/variant_calling/J1_STR.out -e data/Run_01/variant_calling/J1_STR.out -z data/Run_01/variant_calling/J2_STR.out -r /home/nina/Downloads/Run_01_short.out
-
+}
 
 #Für die Funktion zur Zuordnung der Marker, Samples und Patienten und zur Abgleichung der callAllele mit den korrekten Allelen
 
 #erstellt combined-Table aus der Run Tabelle und der global-Sample Tabelle
-if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){
-  combined_table <- combine_Allele(Run_01_file, Profiles_file, global_samples_file)
-  compare_table <- compare_Allele(combined_table)
+if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample) & !is.null(opt$output)){
+  out_dir <- paste(opt$output, "/", sep = "")
+  dir.create(out_dir, recursive = TRUE)
+  #combine_Allele(opt$Run01, opt$profilefile, opt$global_sample)
+  combined_table <- combine_Allele(opt$Run01, opt$profilefile, opt$global_sample, out_dir)
+  #print("combine_Allele")
+  #compare_Allele(combined_table)
+  SN_LN_stutter_true_table <- compare_Allele(combined_table, out_dir)
+  #print("compare_Allele")
+  Doc_SCR_table <- DoC_SCR_StR(combined_table, SN_LN_stutter_true_table, out_dir)
+  #print("DoC_SCR_StR")
+  #ACR_function(SN_LN_stutter_true_table)
+  ACR_table <- ACR_function(SN_LN_stutter_true_table, out_dir)
+  #print("ACR")
+  create_plots(ACR_table, combined_table, out_dir)
+  #print("plots")
+  create_pies(SN_LN_stutter_true_table, out_dir)
+  #print("pies")
   
-  #print("combineAllele")
+  print("combineAllele")
   #combine_Allele(opt$Run01, opt$profilefile, opt$global_sample)
 } else {}
 
-#Vergleicht die call Allele mit den korrekten Allelen und schreibt die Resultate in eine neue Spalte
+if(FALSE) {
+  #Vergleicht die call Allele mit den korrekten Allelen und schreibt die Resultate in eine neue Spalte
 #if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
 #  print("compareAllele")
 #  compare_Allele(opt$Run01, opt$profilefile, opt$global_sample)
@@ -81,22 +99,22 @@ if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample
 #} else {}
 
 #Berechnet ACR
-if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
-  print("ACR")
-  ACR_function(opt$Run01, opt$profilefile, opt$global_sample)
-} else {}
+#if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+  #print("ACR")
+  #ACR_function(opt$Run01, opt$profilefile, opt$global_sample)
+#} else {}
 
 #erstellt plots
-if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
-  print("plots")
-  create_plots(opt$Run01, opt$profilefile, opt$global_sample)
-} else {}
+#if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+  #print("plots")
+ # create_plots(opt$Run01, opt$profilefile, opt$global_sample)
+#} else {}
 
 #erstellt pie_charts
-if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
-  print("pies")
-  create_pies(opt$Run01, opt$profilefile, opt$global_sample)
-} else {}
+#if (!is.null(opt$Run01) & !is.null(opt$profilefile) & !is.null(opt$global_sample)){ 
+ # print("pies")
+ # create_pies(opt$Run01, opt$profilefile, opt$global_sample)
+#} else {}
 
-#source/strstats.R -u /home/nina/projects/strstats/data/Run_01.out -o resources/profiles.csv -g resources/global_sample_overview_forensic.csv
-
+#source/strstats.R -u /home/nina/projects/strstats/data/Run_01.out -f resources/profiles.csv -g resources/global_sample_overview_forensic.csv
+}
