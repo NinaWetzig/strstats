@@ -95,7 +95,7 @@ create_csv <- function(j1in,j2in){
 
 combine_Allele <- function(Run_01_file, Profiles_file, global_samples_file, out_dir) {
   #Run_01_file <- "/home/nina/Downloads/Run_01_short.out"
-  #Run_01_file <- "/home/nina/projects/strstats/data/Run_03.out"
+  #Run_01_file <- "/home/nina/projects/strstats/data/Run_01.out"
   #Profiles_file <- "/home/nina/projects/strstats/resources/profiles.csv" 
   #global_samples_file <- "/home/nina/projects/strstats/resources/global_sample_overview_forensic.csv"
 
@@ -417,9 +417,10 @@ create_plots <- function(ACR_table, combined_table, out_dir) {
 
 create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   
+  #für alle Marker außer Amelogenin
   plot_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
   colnames(plot_table) <-  c("Run", "Marker", "Result", "Reads")
-  #plot_table <- filter(plot_table, Marker != "Amelogenin")
+  plot_table <- filter(plot_table, Marker != "Amelogenin")
   
   plot_table$Run <- as.factor(plot_table$Run)
   plot_table$Marker <- as.factor(plot_table$Marker)
@@ -461,17 +462,133 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
     }
     pies <- do.call(grid.arrange,plots)
   }
-  legend <- get_legend(pie + theme(legend.position="bottom"))
-  pies <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
   
-  ggsave("SCR.pdf", plot = pies, path = out_dir) 
+  
+  #Für Amelogenin
+  plot_table_Amelo <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+  colnames(plot_table_Amelo) <-  c("Run", "Marker", "Result", "Reads")
+  plot_table_Amelo <- filter(plot_table_Amelo, Marker == "Amelogenin")
+  
+  plot_table_Amelo$Run <- as.factor(plot_table_Amelo$Run)
+  plot_table_Amelo$Marker <- as.factor(plot_table_Amelo$Marker)
+  
+  runs <- levels(plot_table_Amelo$Run)
+  markers <- levels(plot_table_Amelo$Marker)
+  
+  for (run in runs) {
+    
+    data <- plot_table_Amelo[plot_table_Amelo$Run == run, ] 
+    
+    Am_plots <- list()
+    x <- 1
+    for (marker in markers) {
+      
+      piedata <- data[data$Marker == marker, ]
+      
+      #pie_charts zur SCR
+      cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
+      pieA  <- ggplot(piedata, aes(x="", y=Reads, fill=Result)) + 
+        geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
+        ggtitle(marker) + 
+        scale_fill_manual(values=cols)+
+        theme_minimal() +
+        theme(
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          panel.border = element_blank(),
+          panel.grid=element_blank(),
+          axis.ticks = element_blank(),
+          axis.text = element_blank()
+        ) +
+        theme(legend.position="none")  
+      
+      Am_plots[[x]] <- pieA
+      x <- x+1
+      print(pie)
+      
+    }
+    pies_Amelo <- do.call(grid.arrange,Am_plots)
+  }
+  
+  #Average
+  Average_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+  colnames(Average_table) <-  c("Run", "Result", "Reads")
+  
+  Average_table$Run <- as.factor(Average_table$Run)
+  
+  runs <- levels(Average_table$Run)
+  Av_plots <- list()
+  x <- 1
+  
+  for (run in runs) {
+    data <- Average_table[Average_table$Run == run, ] 
+    
+    cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
+    pieAv  <- ggplot(data, aes(x="", y=Reads, fill=Result)) + 
+      geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
+      ggtitle("Average") + 
+      scale_fill_manual(values=cols)+
+      theme_minimal() +
+      theme(
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank()
+      ) +
+      theme(legend.position="none")  
+    
+    Av_plots[[x]] <- pieAv
+    x <- x+1
+    print(pieAv)
+  }  
+  
+  Av_pies <- do.call(grid.arrange, Av_plots)
+  
+  #SN:LN
+  SN_LN_plots <- list()
+  x <- 1
+  for (run in runs) {
+    Average_table <- filter(Average_table, Result == "SN" | Result == "LN")
+    data <- Average_table[Average_table$Run == run, ] 
+    
+    cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
+    pieSL  <- ggplot(data, aes(x="", y=Reads, fill=Result)) + 
+      geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
+      ggtitle("SN:LN") + 
+      scale_fill_manual(values=cols)+
+      theme_minimal() +
+      theme(
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank()
+      ) +
+      theme(legend.position="none")  
+    
+    SN_LN_plots[[x]] <- pieSL
+    x <- x+1
+    print(pieSL)
+  }  
+  
+  SN_LN_pies <- do.call(grid.arrange, SN_LN_plots)
+  
+  legend <- get_legend(pie + theme(legend.position="bottom"))
+  pies <- grid.arrange(pies)
+  pie_chart <- grid.arrange(SN_LN_pies, Av_pies, pies_Amelo)
+  pie_chart <- plot_grid(pies, pie_chart, legend, rel_widths = c(2, 1))
+ 
+  ggsave("SCR.pdf", plot = pie_chart, path = "/home/nina/Desktop/test") 
   write.csv(plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
 
   #StR plots
   StR_plot_table <- filter(SN_LN_stutter_true_table, Result == "true" | Result == "stutter")
   StR_plot_table <- aggregate(StR_plot_table$Reads, by = list(Run = StR_plot_table$Run, Marker = StR_plot_table$Marker, Result = StR_plot_table$Result), FUN = function(x) sum = sum(x))
   colnames(StR_plot_table) <-  c("Run", "Marker", "Result", "Reads")
-  #StR_plot_table <- filter(StR_plot_table, Marker != "Amelogenin")
+  StR_plot_table <- filter(StR_plot_table, Marker != "Amelogenin")
   
   StR_plot_table$Run <- as.factor(StR_plot_table$Run)
   StR_plot_table$Marker <- as.factor(StR_plot_table$Marker)
