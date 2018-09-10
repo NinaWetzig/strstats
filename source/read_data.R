@@ -417,77 +417,58 @@ create_plots <- function(ACR_table, combined_table, out_dir) {
 
 create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   
-  #für alle Marker außer Amelogenin
+  #Marker
   plot_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
   colnames(plot_table) <-  c("Run", "Marker", "Result", "Reads")
-  plot_table <- filter(plot_table, Marker != "Amelogenin")
+
+  #Average
+  Average_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+  Average_table$Marker <- "Average"
+  colnames(Average_table) <-  c("Run", "Result", "Reads","Marker")
   
-  plot_table$Run <- as.factor(plot_table$Run)
-  plot_table$Marker <- as.factor(plot_table$Marker)
+  #SN:LN
+  SNLN_table <- filter(Average_table, Result == "SN" | Result == "LN")
+  SNLN_table$Marker <- "SN:LN"
+  pie_chart_table <- rbind(plot_table, Average_table, SNLN_table)
+ 
+  #Pie charts zu allen Markern, Average und SN:LA 
+  pie_chart_table$Run <- as.factor(pie_chart_table$Run)
+  pie_chart_table$Marker <- as.factor(pie_chart_table$Marker)
+  pie_chart_table$Marker <- factor(pie_chart_table$Marker, levels=c("D10S1248","D12S391","D16S539","D18S51","D19S433", "D1S1656", "D21S11", "D22S1045","D2S1338","D2S441","D8S1179","FGA","SE33","TH01","vWA","Amelogenin","SN:LN","Average"))
   
-  runs <- levels(plot_table$Run)
-  markers <- levels(plot_table$Marker)
+  
+  runs <- levels(pie_chart_table$Run)
+  markers <- levels(pie_chart_table$Marker)
   
   for (run in runs) {
     
-    data <- plot_table[plot_table$Run == run, ] 
+    data <- pie_chart_table[pie_chart_table$Run == run, ] 
+    
+    #pie_charts zur SCR
+    #cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
+    #pie  <- ggplot(data, aes(x="", y=Reads, fill=Result)) + 
+     # geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
+      #scale_fill_manual(values=cols)+
+      #theme_minimal() +
+      #theme(
+       # axis.title.x = element_blank(),
+       # axis.title.y = element_blank(),
+       # panel.border = element_blank(),
+        #panel.grid=element_blank(),
+       # axis.ticks = element_blank(),
+       # axis.text = element_blank()
+      #) + facet_grid(~ Marker)
+   # pie
     
     plots <- list()
     x <- 1
     for (marker in markers) {
-    
+      
       piedata <- data[data$Marker == marker, ]
       
       #pie_charts zur SCR
       cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
       pie  <- ggplot(piedata, aes(x="", y=Reads, fill=Result)) + 
-      geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
-      ggtitle(marker) + 
-      scale_fill_manual(values=cols)+
-      theme_minimal() +
-      theme(
-          axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          panel.border = element_blank(),
-          panel.grid=element_blank(),
-          axis.ticks = element_blank(),
-          axis.text = element_blank()
-        ) +
-      theme(legend.position="none")  
-      
-      plots[[x]] <- pie
-      x <- x+1
-      print(pie)
-      
-    }
-    pies <- do.call(grid.arrange,plots)
-  }
-  
-  
-  #Für Amelogenin
-  plot_table_Amelo <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
-  colnames(plot_table_Amelo) <-  c("Run", "Marker", "Result", "Reads")
-  plot_table_Amelo <- filter(plot_table_Amelo, Marker == "Amelogenin")
-  
-  plot_table_Amelo$Run <- as.factor(plot_table_Amelo$Run)
-  plot_table_Amelo$Marker <- as.factor(plot_table_Amelo$Marker)
-  
-  runs <- levels(plot_table_Amelo$Run)
-  markers <- levels(plot_table_Amelo$Marker)
-  
-  for (run in runs) {
-    
-    data <- plot_table_Amelo[plot_table_Amelo$Run == run, ] 
-    
-    Am_plots <- list()
-    x <- 1
-    for (marker in markers) {
-      
-      piedata <- data[data$Marker == marker, ]
-      
-      #pie_charts zur SCR
-      cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
-      pieA  <- ggplot(piedata, aes(x="", y=Reads, fill=Result)) + 
         geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
         ggtitle(marker) + 
         scale_fill_manual(values=cols)+
@@ -502,84 +483,16 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
         ) +
         theme(legend.position="none")  
       
-      Am_plots[[x]] <- pieA
+      plots[[x]] <- pie
       x <- x+1
       print(pie)
       
     }
-    pies_Amelo <- do.call(grid.arrange,Am_plots)
+    pies <- do.call(grid.arrange,plots)
   }
   
-  #Average
-  Average_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
-  colnames(Average_table) <-  c("Run", "Result", "Reads")
-  
-  Average_table$Run <- as.factor(Average_table$Run)
-  
-  runs <- levels(Average_table$Run)
-  Av_plots <- list()
-  x <- 1
-  
-  for (run in runs) {
-    data <- Average_table[Average_table$Run == run, ] 
-    
-    cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
-    pieAv  <- ggplot(data, aes(x="", y=Reads, fill=Result)) + 
-      geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
-      ggtitle("Average") + 
-      scale_fill_manual(values=cols)+
-      theme_minimal() +
-      theme(
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        panel.border = element_blank(),
-        panel.grid=element_blank(),
-        axis.ticks = element_blank(),
-        axis.text = element_blank()
-      ) +
-      theme(legend.position="none")  
-    
-    Av_plots[[x]] <- pieAv
-    x <- x+1
-    print(pieAv)
-  }  
-  
-  Av_pies <- do.call(grid.arrange, Av_plots)
-  
-  #SN:LN
-  SN_LN_plots <- list()
-  x <- 1
-  for (run in runs) {
-    Average_table <- filter(Average_table, Result == "SN" | Result == "LN")
-    data <- Average_table[Average_table$Run == run, ] 
-    
-    cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
-    pieSL  <- ggplot(data, aes(x="", y=Reads, fill=Result)) + 
-      geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
-      ggtitle("SN:LN") + 
-      scale_fill_manual(values=cols)+
-      theme_minimal() +
-      theme(
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        panel.border = element_blank(),
-        panel.grid=element_blank(),
-        axis.ticks = element_blank(),
-        axis.text = element_blank()
-      ) +
-      theme(legend.position="none")  
-    
-    SN_LN_plots[[x]] <- pieSL
-    x <- x+1
-    print(pieSL)
-  }  
-  
-  SN_LN_pies <- do.call(grid.arrange, SN_LN_plots)
-  
   legend <- get_legend(pie + theme(legend.position="bottom"))
-  pies <- grid.arrange(pies)
-  pie_chart <- grid.arrange(SN_LN_pies, Av_pies, pies_Amelo)
-  pie_chart <- plot_grid(pies, pie_chart, legend, rel_widths = c(2, 1))
+  pie_chart <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
  
   ggsave("SCR.pdf", plot = pie_chart, path = "/home/nina/Desktop/test") 
   write.csv(plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
@@ -635,21 +548,19 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   ggsave("StR.pdf", plot = pies, path = out_dir) 
   write.csv(StR_plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
   
-  #SNR plots
-  SNR_plot_table <- filter(SN_LN_stutter_true_table, Result == "true" | Result == "stutter" | Result == "SN")
-  SNR_plot_table <- aggregate(SNR_plot_table$Reads, by = list(Run = SNR_plot_table$Run, Marker = SNR_plot_table$Marker, Result = SNR_plot_table$Result), FUN = function(x) sum = sum(x))
-  colnames(SNR_plot_table) <-  c("Run", "Marker", "Result", "Reads")
-  SNR_plot_table <- filter(SNR_plot_table, Marker != "Amelogenin")
+  #SCR plots
+  SCR_plot_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+  colnames(SCR_plot_table) <-  c("Run", "Marker", "Result", "Reads")  
+
+  SCR_plot_table$Run <- as.factor(SCR_plot_table$Run)
+  SCR_plot_table$Marker <- as.factor(SCR_plot_table$Marker)
   
-  SNR_plot_table$Run <- as.factor(SNR_plot_table$Run)
-  SNR_plot_table$Marker <- as.factor(SNR_plot_table$Marker)
-  
-  runs <- levels(SNR_plot_table$Run)
-  markers <- levels(SNR_plot_table$Marker)
+  runs <- levels(SCR_plot_table$Run)
+  markers <- levels(SCR_plot_table$Marker)
   
   for (run in runs) {
     
-    data <- SNR_plot_table[SNR_plot_table$Run == run, ] 
+    data <- SCR_plot_table[SCR_plot_table$Run == run, ] 
     
     plots <- list()
     x <- 1
@@ -657,11 +568,11 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
       
       piedata <- data[data$Marker == marker, ]
       
-      cols <- c("SN" = "red", "stutter" = "red", "true" = "blue")
+      cols <- c("LN" = "red", "SN" = "brown4", "stutter" = "yellow", "true" = "blue")
       pie  <- ggplot(piedata, aes(x="", y=Reads, fill=Result)) + 
         geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
         ggtitle(marker) + 
-        scale_fill_manual(values=c("red", "red", "blue"))+
+        scale_fill_manual(values=cols)+
         theme_minimal() +
         theme(
           axis.title.x = element_blank(),
@@ -683,8 +594,8 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   legend <- get_legend(pie + theme(legend.position="bottom"))
   pies <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
   
-  ggsave("SNR.pdf", plot = pies, path = out_dir) 
-  write.csv(SNR_plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
+  ggsave("SCR.pdf", plot = pies, path = "/home/nina/Desktop/Vortrag_Rheinbach_Kennzahlen/Graphics") 
+  write.csv(SCR_plot_table, file=paste(out_dir, "SCR_plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
   
 }
 
