@@ -6,6 +6,8 @@ library(NMF)
 library(gridExtra)
 library(cowplot)
 
+h_treshold <- 0.5
+
 #' params: profile_file - a profile csv file
 #' return: data.frame of the prfile file
 read_profile <- function(profile_file){
@@ -19,7 +21,7 @@ read_profile <- function(profile_file){
 
 #Funktion zur Berechnung der Read-Summen je nach Marker und Allel
 read_raw_input  <- function(raw_input_file){
-  raw_names <- c("Run", "Sample", "Marker", "Allele", "Pattern", "Quality", "Reads", "Variants")
+  raw_names <- c("Run", "Sample", "Marker", "Allele", "Pattern", "Reads")
   #Einlesen der Tabelle
   raw_input <- read.csv(raw_input_file, na.strings=c("","NA"), sep =",", col.names = raw_names, header = TRUE, stringsAsFactors = FALSE)
   #Berechnet die Read-Summe pro Marker
@@ -95,12 +97,12 @@ create_csv <- function(j1in,j2in){
 
 combine_Allele <- function(Run_01_file, Profiles_file, global_samples_file, out_dir) {
   #Run_01_file <- "/home/nina/Downloads/Run_01_short.out"
-  #Run_01_file <- "/home/nina/projects/strstats/data/Run_01.out"
-  #Profiles_file <- "/home/nina/projects/strstats/resources/profiles.csv" 
-  #global_samples_file <- "/home/nina/projects/strstats/resources/global_sample_overview_forensic.csv"
+  #Run_01_file <- "data/Run_01.out"
+  #Profiles_file <- "resources/profiles.csv" 
+  #global_samples_file <- "resources/global_sample_overview_forensic.csv"
 
   #einlesen der Run_01_short Tabelle
-  Run_01_short <- read.csv(Run_01_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
+  Run_01_short <- read.csv(Run_01_file, na.strings=c("","NA"), sep =",", header = FALSE, stringsAsFactors = FALSE)
   colnames(Run_01_short) <- c("Run", "Sample", "Marker", "call_Allele", "Pattern", "Quality", "Reads", "Variants")
   
   #einlesen der profiles Tabelle
@@ -122,6 +124,15 @@ combine_Allele <- function(Run_01_file, Profiles_file, global_samples_file, out_
   colnames(Profiles_cast) = c("Marker", "Patient", "Allel_1", "Allel_2")
   
   
+  
+  ## NA mit "NA" ersetzen in Amel
+  #combined_table <- # if marker == amelogenin <- pattern
+    
+  #combined_table <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample,Marker = combined_table$Marker,call_Allele = combined_table$call_Allele, Pattern = combined_table$Pattern, Patient = combined_table$Patient, Allel_1 = combined_table$Allel_1, Allel_2 = combined_table$Allel_2 ), FUN = function(x) sum = sum(x))
+  #colnames(combined_table)[9] <- "Reads"
+  #combined_table <- combined_table[,c(1, 2, 3, 4, 5, 9, 6, 7, 8)]
+  
+  
   # Vereint die Tabellen Run_01 und Profiles_cast miteinamder, sodass alle Spalten der Run_01 Tabelle erhalten bleiben und Allel1 und Allel2 dazu kommen
   combined_table <- inner_join(Run_01_short, Profiles_cast)
   
@@ -132,52 +143,68 @@ combine_Allele <- function(Run_01_file, Profiles_file, global_samples_file, out_
 
 compare_Allele <- function(combined_table, out_dir)  {
   
-  # Exclude Amelogenin
-  #combined_table <- combined_table[combined_table$Marker != "Amelogenin", ]
-
-  # Allel1 und Allel2 Spalten von character zu numeric
-  combined_table$Allel_1 <- as.numeric(as.character(combined_table$Allel_1))
-  combined_table$Allel_2 <- as.numeric(as.character(combined_table$Allel_2))
-
-  # Die Spalte Result wird erstellt. In dieser Spalte soll zwischen SN, LN, stutter und true unterschieden werden. Hier wird aber zunächst auch alles SN
-  #genannt, was später noch teilweise zu true wird und alles wird stutter genannt, auch wenn es später noch zu SN werden soll
-  
+  combined_table <- group_by(combined_table, Marker, Sample, call_Allele) %>%  mutate(rank = rank(desc(Reads))) %>% arrange(rank)
   #im Fall von Amelogenin wird SN gesetzt
   combined_table$Result <- apply(combined_table, 1 , FUN = function(x) {
-    if (!is.na(as.numeric(x[["call_Allele"]]))) { 
+    if (!is.na(as.numeric(x[["call_Allele"]]))) {
       if (as.numeric(x[["call_Allele"]]) == as.numeric(x[["Allel_1"]]) || as.numeric(x[["call_Allele"]]) == as.numeric(x[["Allel_2"]])) {
-        ret = "SN"
+        if (as.numeric(x[["Allel_1"]]) == as.numeric(x[["Allel_2"]])) {
+          if (as.numeric(x[["rank"]]) <= 2) {
+            return(ret = "true")
+          } else {
+            return(ret = "SN")
+          }
+        } else {
+          if (as.numeric(x[["rank"]]) <= 1) {
+            return(ret = "true")
+          } else {
+            return(ret = "SN")
+          }
+        }
       } else if (as.numeric(x[["call_Allele"]]) == as.numeric(x[["Allel_1"]])-1 || as.numeric(x[["call_Allele"]]) == as.numeric(x[["Allel_2"]])-1) {
-        ret = "stutter"
+        return(ret = "stutter")
       } else {
-        ret = "LN"
-        } 
-    }
-    else {
-      ret = "SN"
+        return(ret = "LN")
+      } 
+    } else if (x[["call_Allele"]] == x[["Allel_1"]] || x[["call_Allele"]] == x[["Allel_2"]]) {
+      if (x[["Allel_1"]] == x[["Allel_2"]]) {
+        if (as.numeric(x[["rank"]]) <= 2) {
+          return(ret = "true")
+        } else {
+          return(ret = "SN")
+        }
+      } else {
+        if (as.numeric(x[["rank"]]) <= 1) {
+          return(ret = "true")
+        } else {
+          return(ret = "SN")
+        }
+      }
+    } else {
+      return(ret = "SN")
     }
   })
   
-
-  #erstellt Tabelle, die call-Allele mit korrekten Allelen vergleicht und mit SN, LN, stutter oder true bennent
-
-  #erstellt eine Tabelle, nur aus den Allelen mit SN. Ordnet die Tabelle nach Reads (die höchsten und zweithöchsten Reads)
-  #diese Tabelle enthält nun alle richtigen true Allele 
-  combined_table_true <- combined_table[combined_table$Result == "SN", ]
-  combined_table_true <-  group_by(combined_table_true, Marker, Sample, call_Allele) %>%  mutate(rank = rank(desc(Reads))) %>% arrange(rank) %>% filter(rank <= 1)
-  combined_table_true$Result <- gsub(pattern = "SN", replacement="true", x = combined_table_true$Result)
-  combined_table_true <- select(combined_table_true, -rank)
+  # In case of homocytoe samples, the first two alleles were set true. All true alleles with rank 2 are now compared to the corresponding rank 1 alleles and only remain true if there reads are at least - h_treshold - % of the reads of the rank 1 allele
+  combined_table_true <- combined_table[combined_table$Result == "true",]
   
-  #Amelogenin = true
-  #amelos = subset(combined_table_true, Marker == "Amelogenin")$Result
-  #for (amelo in amelos){
-    #combined_table_true <-  group_by(combined_table_true, Marker, Sample, call_Allele) %>%  mutate(rank = rank(desc(Reads))) %>% arrange(rank) %>% filter(rank <= 1)
-    #combined_table_true <- combined_table[combined_table$Result == "SN", ]
-    #combined_table_true$Result <- gsub(pattern = "SN", replacement="true", x = combined_table_true$Result)
-  #}
-  #ersetzt die SN in combined_table, die laut combined_table_true, eigentlich "true" sein müssten.
-  Allel_table <- left_join(combined_table,combined_table_true, by=c("Run", "Sample", "Marker","call_Allele","Pattern", "Quality", "Reads", "Variants", "Patient","Allel_1","Allel_2")) %>% mutate(Result=coalesce(Result.y,Result.x)) %>% select(-Result.x,-Result.y)
-
+  combined_table_true$Result <- apply(combined_table_true, 1, FUN = function(x) {
+    if (as.numeric(x[["rank"]]) == 2) {
+      r1_reads <- filter(combined_table_true, Run == x[["Run"]], Sample == x[["Sample"]], Marker == x[["Marker"]], rank == as.numeric(1))$Reads
+      if (!is.na(as.numeric(r1_reads))) {
+        if (as.numeric(x[["Reads"]]) > (as.numeric(r1_reads)*as.numeric(h_treshold))) {
+          return("true")
+        } else {
+          return("SN")
+        }
+      }
+    } else {
+      return("true")
+    }
+  })
+  
+  Allel_table <- left_join(combined_table,combined_table_true, by=c("Run", "Sample", "Marker","call_Allele","Pattern", "Reads", "Patient","Allel_1","Allel_2")) %>% mutate(Result=coalesce(Result.y,Result.x)) %>% select(-Result.x,-Result.y)
+  Allel_table <- subset(Allel_table, select=-c(rank.x,rank.y))
   #löscht ] und Zahlen in der Tabelle, damit die Pattern verglichen werden können. 
   Allel_table$Pattern_short <- gsub(pattern = "[[:punct:]]", replacement="", x = Allel_table$Pattern) 
   Allel_table$Pattern_short <- gsub(pattern = "[0-9]", replacement="", x = Allel_table$Pattern_short)
@@ -252,9 +279,7 @@ DoC_SCR_StR <- function(combined_table, SN_LN_stutter_true_table, out_dir) {
     }
     
   }
-  print(stutter_run_list)
   colnames(stutter_run_list) <- c("Run", "Marker", "St_ratio")
-  print(6)
   #Berechnung der Stutter Ratio
   #SCR_Doc_table$St_ratio <- SCR_Doc_table[SCR_Doc_table$Result == "stutter","Reads" ]/SCR_Doc_table[SCR_Doc_table$Result == "true","Reads" ]
   
@@ -283,7 +308,7 @@ DoC_SCR_StR <- function(combined_table, SN_LN_stutter_true_table, out_dir) {
           sn_line <- sn/(t+sn)
         }
         else if (length(s) != 0 & length(t) != 0) {
-          sn_line <- sn/(s+sn)
+          sn_line <- sn/(s+sn+t)
         }
       }
       else {
@@ -386,11 +411,11 @@ create_plots <- function(ACR_table, combined_table, out_dir) {
     # ?
     
     # Pfad anpassen
-    #write.table(doc_m, file = paste("~/Studium/Praktikum/Praktikums_Uebung/", run, "_DoC.csv", sep = ""), append = FALSE, quote = TRUE, sep = ",", eol = "\n", na = "NA", dec = ".", col.names = NA, qmethod = c("escape", "double"),fileEncoding = "")
+    write.table(doc_m, file = paste(out_dir, run, "_DoC.csv", sep = ""), append = FALSE, quote = TRUE, sep = ",", eol = "\n", na = "NA", dec = ".", col.names = NA, qmethod = c("escape", "double"),fileEncoding = "")
     # Tabelle aus doc_m (also der doc_m die jetzt auch doc_x enthält)
     # eine Tabelle für jedes der run (Schleife)
     
-    doc_m <- doc_m[order(rowSums(doc_m), decreasing=TRUE),]
+    doc_m <- doc_m[order(rowSums(doc_m), decreasing=FALSE),]
     # ordner die Zeilen nach Zeilensummen in absteigender Reihenfolge
     
     # Pfad anpassen
@@ -411,34 +436,38 @@ create_plots <- function(ACR_table, combined_table, out_dir) {
   g <- g + coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1))
   
   ggsave("ACR.pdf", plot = g, path = out_dir)
-  write.csv(heatmap_table, file=paste(out_dir, "heatmap_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
   
 }  
 
 create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   
   #Marker
-  plot_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
-  colnames(plot_table) <-  c("Run", "Marker", "Result", "Reads")
+  marker_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
+  marker_table <- filter(marker_table, Marker != "Amelogenin")
+  markers <- levels(as.factor(marker_table$Marker))
+  colnames(marker_table) <-  c("Run", "Marker", "Result", "Reads")
 
   #Average
   Average_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
   Average_table$Marker <- "Average"
-  colnames(Average_table) <-  c("Run", "Result", "Reads","Marker")
+  Average_table <- Average_table[,c(1, 4, 2, 3)]
+  colnames(Average_table) <-  c("Run", "Marker", "Result", "Reads")
   
   #SN:LN
-  SNLN_table <- filter(Average_table, Result == "SN" | Result == "LN")
+  SNLN_table <- filter(marker_table, Result == "SN" | Result == "LN")
   SNLN_table$Marker <- "SN:LN"
-  pie_chart_table <- rbind(plot_table, Average_table, SNLN_table)
+  colnames(SNLN_table) <-  c("Run", "Marker", "Result", "Reads")
+  
+  pie_chart_table <- rbind(marker_table, Average_table, SNLN_table)
  
   #Pie charts zu allen Markern, Average und SN:LA 
-  pie_chart_table$Run <- as.factor(pie_chart_table$Run)
-  pie_chart_table$Marker <- as.factor(pie_chart_table$Marker)
-  pie_chart_table$Marker <- factor(pie_chart_table$Marker, levels=c("D10S1248","D12S391","D16S539","D18S51","D19S433", "D1S1656", "D21S11", "D22S1045","D2S1338","D2S441","D8S1179","FGA","SE33","TH01","vWA","Amelogenin","SN:LN","Average"))
+  #pie_chart_table$Run <- as.factor(pie_chart_table$Run)
+  #pie_chart_table$Marker <- as.factor(pie_chart_table$Marker)
+  #pie_chart_table$Marker <- factor(pie_chart_table$Marker, levels=c("D10S1248","D12S391","D16S539","D18S51","D19S433", "D1S1656", "D21S11", "D22S1045","D2S1338","D2S441","D8S1179","FGA","SE33","TH01","vWA","Amelogenin","SN:LN","Average"))
   
   
-  runs <- levels(pie_chart_table$Run)
-  markers <- levels(pie_chart_table$Marker)
+  runs <- levels(as.factor(pie_chart_table$Run))
+  markers <- c(markers, "SN:LN", "Average")
   
   for (run in runs) {
     
@@ -485,7 +514,6 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
       
       plots[[x]] <- pie
       x <- x+1
-      print(pie)
       
     }
     pies <- do.call(grid.arrange,plots)
@@ -494,8 +522,8 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   legend <- get_legend(pie + theme(legend.position="bottom"))
   pie_chart <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
  
-  ggsave("SCR.pdf", plot = pie_chart, path = "/home/nina/Desktop/test") 
-  write.csv(plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
+  ggsave("SCR.pdf", plot = pie_chart, path = out_dir) 
+  write.csv(pie_chart_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
 
   #StR plots
   StR_plot_table <- filter(SN_LN_stutter_true_table, Result == "true" | Result == "stutter")
@@ -519,7 +547,7 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
       
       piedata <- data[data$Marker == marker, ]
       
-      cols <- c("stutter" = "red", "true" = "blue")
+      cols <- c("stutter" = "yellow", "true" = "blue")
       pie  <- ggplot(piedata, aes(x="", y=Reads, fill=Result)) + 
         geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
         ggtitle(marker) + 
@@ -548,6 +576,8 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   ggsave("StR.pdf", plot = pies, path = out_dir) 
   write.csv(StR_plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
   
+  
+  if(FALSE) {
   #SCR plots
   SCR_plot_table <- aggregate(SN_LN_stutter_true_table$Reads, by = list(Run = SN_LN_stutter_true_table$Run, Marker = SN_LN_stutter_true_table$Marker, Result = SN_LN_stutter_true_table$Result), FUN = function(x) sum = sum(x))
   colnames(SCR_plot_table) <-  c("Run", "Marker", "Result", "Reads")  
@@ -597,6 +627,7 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
   ggsave("SCR.pdf", plot = pies, path = "/home/nina/Desktop/Vortrag_Rheinbach_Kennzahlen/Graphics") 
   write.csv(SCR_plot_table, file=paste(out_dir, "SCR_plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
   
+    }
 }
 
 
