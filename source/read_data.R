@@ -123,18 +123,21 @@ combine_Allele <- function(Run_01_file, Profiles_file, global_samples_file, out_
   Profiles_cast <- cbind(Profiles_melt[seq(1, nrow(Profiles_melt), by=2),], Profiles_melt[seq(2, (nrow(Profiles_melt)), by=2),])[,c(4,5)*-1]
   colnames(Profiles_cast) = c("Marker", "Patient", "Allel_1", "Allel_2")
   
-  
-  
-  ## NA mit "NA" ersetzen in Amel
-  #combined_table <- # if marker == amelogenin <- pattern
-    
-  #combined_table <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample,Marker = combined_table$Marker,call_Allele = combined_table$call_Allele, Pattern = combined_table$Pattern, Patient = combined_table$Patient, Allel_1 = combined_table$Allel_1, Allel_2 = combined_table$Allel_2 ), FUN = function(x) sum = sum(x))
-  #colnames(combined_table)[9] <- "Reads"
-  #combined_table <- combined_table[,c(1, 2, 3, 4, 5, 9, 6, 7, 8)]
-  
-  
   # Vereint die Tabellen Run_01 und Profiles_cast miteinamder, sodass alle Spalten der Run_01 Tabelle erhalten bleiben und Allel1 und Allel2 dazu kommen
   combined_table <- inner_join(Run_01_short, Profiles_cast)
+  
+  ## NA mit "NA" ersetzen in Amel
+  combined_table$Pattern <- apply(combined_table, 1 , FUN = function(x) {
+    if (x[["Marker"]] == "Amelogenin") {
+      return(ret = "NA") 
+    } else {
+        return(ret = x[["Pattern"]])
+    }
+  }) 
+  
+  combined_table <- aggregate(combined_table$Reads, by = list(Run = combined_table$Run, Sample = combined_table$Sample,Marker = combined_table$Marker,call_Allele = combined_table$call_Allele, Pattern = combined_table$Pattern, Patient = combined_table$Patient, Allel_1 = combined_table$Allel_1, Allel_2 = combined_table$Allel_2 ), FUN = function(x) sum = sum(x))
+  colnames(combined_table)[9] <- "Reads"
+  combined_table <- combined_table[,c(1, 2, 3, 4, 5, 9, 6, 7, 8)]
   
   #Variable, die angibt wo die Grafiken gespeichert werden
   write.csv(combined_table, file=paste(out_dir, "combined_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
