@@ -427,18 +427,23 @@ create_plots <- function(ACR_table, combined_table, out_dir) {
     dev.off()
   }
   
-  ACR_table$Marker <- as.factor(ACR_table$Marker)
-  #ACR_table <- filter(ACR_table, Marker != "Amelogenin")
+  runs <- levels(ACR_table$Run)
   
-  #ACR Boxplots
-  g <- ggplot(ACR_table, aes(x=reorder(Marker, ACR, FUN = median), y=ACR)) + geom_boxplot(color = "black", fill = "dodgerblue2")  
-  g <- g + xlab("Marker") + geom_hline(yintercept=0.6, color =  "red")
-  g <- g + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Allele Coverage Ratio per Marker") 
-  g <- g + stat_summary(fun.y=mean, geom="point", color="white", fill="white") 
-  g <- g + coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1))
+  for (run in runs){
   
-  ggsave("ACR.pdf", plot = g, path = out_dir)
-  
+    data <- ACR_table[ACR_table$Run == run, ]  
+    data$Marker <- as.factor(data$Marker)
+    #ACR_table <- filter(ACR_table, Marker != "Amelogenin")
+    
+    #ACR Boxplots
+    g <- ggplot(data, aes(x=reorder(Marker, ACR, FUN = median), y=ACR)) + geom_boxplot(color = "black", fill = "dodgerblue2")  
+    g <- g + xlab("Marker") + geom_hline(yintercept=0.6, color =  "red")
+    g <- g + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Allele Coverage Ratio per Marker") 
+    g <- g + stat_summary(fun.y=mean, geom="point", color="white", fill="white") 
+    g <- g + coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1))
+    
+    ggsave(file = paste(out_dir, run, "_ACR.pdf", sep = ""), plot = g, path = out_dir)
+  }
 }  
 
 create_pies <- function(SN_LN_stutter_true_table, out_dir) {
@@ -519,14 +524,16 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
       
     }
     pies <- do.call(grid.arrange,plots)
+    
+    legend <- get_legend(pie + theme(legend.position="bottom"))
+    pie_chart <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
+    
+    ggsave("SCR.pdf", plot = pie_chart, path = out_dir) 
+    write.csv(pie_chart_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
+    
   }
   
-  legend <- get_legend(pie + theme(legend.position="bottom"))
-  pie_chart <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
- 
-  ggsave("SCR.pdf", plot = pie_chart, path = out_dir) 
-  write.csv(pie_chart_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
-
+  
   #StR plots
   StR_plot_table <- filter(SN_LN_stutter_true_table, Result == "true" | Result == "stutter")
   StR_plot_table <- aggregate(StR_plot_table$Reads, by = list(Run = StR_plot_table$Run, Marker = StR_plot_table$Marker, Result = StR_plot_table$Result), FUN = function(x) sum = sum(x))
@@ -571,12 +578,14 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
       
     }
     pies <- do.call(grid.arrange,plots)
+    
+    legend <- get_legend(pie + theme(legend.position="bottom"))
+    pies <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
+    
+    ggsave("StR.pdf", plot = pies, path = out_dir) 
+    write.csv(StR_plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
   }
-  legend <- get_legend(pie + theme(legend.position="bottom"))
-  pies <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
-  
-  ggsave("StR.pdf", plot = pies, path = out_dir) 
-  write.csv(StR_plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
+ 
 
 
 #SNR plots
@@ -623,12 +632,14 @@ markers <- levels(SNR_plot_table$Marker)
       
     }
     pies <- do.call(grid.arrange,plots)
+    
+    legend <- get_legend(pie + theme(legend.position="bottom"))
+    pies <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
+    
+    ggsave("SNR.pdf", plot = pies, path = out_dir) 
+    write.csv(SNR_plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
   }
-  legend <- get_legend(pie + theme(legend.position="bottom"))
-  pies <- plot_grid(pies, legend, ncol = 1, rel_heights = c(1, .2))
   
-  ggsave("SNR.pdf", plot = pies, path = out_dir) 
-  write.csv(SNR_plot_table, file=paste(out_dir, "plot_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
 }
 
 
