@@ -15,8 +15,8 @@ combine_Allele <- function(Data_File, Profiles_file, global_samples_file, out_di
   #global_samples_file <- "resources/global_sample_overview_forensic.csv"
 
   #einlesen der Run_01_short Tabelle
-  data <- read.csv(Data_File, na.strings=c("","NA"), sep =",", header = FALSE, stringsAsFactors = FALSE)
-  colnames(data) <- c("Run", "Sample", "Marker", "call_Allele", "Pattern", "Quality", "Reads", "Variants")
+  input_data <- read.csv(Data_File, na.strings=c("","NA"), sep =",", header = FALSE, stringsAsFactors = FALSE)
+  colnames(input_data) <- c("Run", "Sample", "Marker", "call_Allele", "Pattern", "Quality", "Reads", "Variants")
   
   #einlesen der profiles Tabelle
   Profiles <- read.csv(Profiles_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
@@ -27,7 +27,7 @@ combine_Allele <- function(Data_File, Profiles_file, global_samples_file, out_di
   global_samples <- read.csv(global_samples_file, na.strings=c("","NA"), sep =",", header = TRUE, stringsAsFactors = FALSE)
   
   #zu der Run_01_short Tabelle wird die Spalte Patienten zugefügt, nach der global_samples Tabelle
-  data$Patient <- global_samples$Patient[match(data$Sample, global_samples$Sample)]
+  input_data$Patient <- global_samples$Patient[match(input_data$Sample, global_samples$Sample)]
   
   #Die Tabelle Profiles_melt hatte die Allele in einer Spalte untereinander, die neue Tabelle Profiles_cast hat für jedes Alell eine Spalte
   #Profiles_melt[seq(1, nrow(Profiles_melt), by=2),], Profiles_melt[seq(2, (nrow(Profiles_melt) Jede zweite Zeile der Tabelle beginnend mit der ersten Zeile wird in eine Tabelle umgeschrieben
@@ -37,7 +37,7 @@ combine_Allele <- function(Data_File, Profiles_file, global_samples_file, out_di
   colnames(Profiles_cast) = c("Marker", "Patient", "Allel_1", "Allel_2")
   
   # Vereint die Tabellen Run_01 und Profiles_cast miteinamder, sodass alle Spalten der Run_01 Tabelle erhalten bleiben und Allel1 und Allel2 dazu kommen
-  combined_table <- inner_join(data, Profiles_cast)
+  combined_table <- inner_join(input_data, Profiles_cast)
   
   ## NA mit "NA" ersetzen in Amel
   combined_table$Pattern <- apply(combined_table, 1 , FUN = function(x) {
@@ -54,6 +54,26 @@ combine_Allele <- function(Data_File, Profiles_file, global_samples_file, out_di
   
   #Variable, die angibt wo die Grafiken gespeichert werden
   write.csv(combined_table, file=paste(out_dir, "combined_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
+  
+  runs <- levels(as.factor(combined_table$Run))
+  for (run in runs) {
+    run_dir <- paste(out_dir, run, "/", sep = "")
+    dir.create(run_dir, recursive = TRUE)
+    
+    run_table <- combined_table[combined_table$Run == run, ]
+    run_big_table <- compare_Allele(run_table, run_dir)
+    
+    run_plots <- list()
+    
+    # DoC
+    doc_heatmap <- doc(run_table, run_dir, run)
+    run_plots <- list(run_plots, list(doc_heatmap))
+    
+    # ACR
+    acr_boxplot <- acr(run_big_table, run_dir, run)
+    run_plots <- list(run_plots, list(acr_boxplot))
+    
+  }
   return(combined_table)
 }
 
@@ -148,6 +168,8 @@ compare_Allele <- function(combined_table, out_dir)  {
   
   return(SN_LN_stutter_true_table)
 }
+
+### to be remodeled
 
 DoC_SCR_StR <- function(combined_table, SN_LN_stutter_true_table, out_dir) {
   
@@ -515,3 +537,111 @@ create_pies <- function(SN_LN_stutter_true_table, out_dir) {
 }
 
 
+### streamlined functions
+
+doc <- function(combined_table, out_dir, run) {
+  data <- data.frame(combined_table$Run, combined_table$Sample, combined_table$Marker, combined_table$Reads)
+  colnames(data) <- c("Run", "Sample", "Marker", "Reads")   
+  
+  # data wird alles genannt das in der Datei "input" unter Run mit "run" abgelegt war
+  
+  doc_x <- data[data$Marker == "Amelogenin", ]
+  # hier wird gespeichert was aus "data" in der Marker-Spalte "Amelogenin" hat
+  
+  doc_x <- cast(doc_x, Sample ~ Marker, fun.aggregate = sum)
+  # hier wird die doc_x Tabelle neu organisiert? (Marker gegen Sample)
+  
+  doc_x <- doc_x[,-1]
+  # doc_x ohne die erste Spalte (ohne Sample)
+  
+  doc_a <- filter(data, Marker != "Amelogenin")
+  # filtert in data nach Zeilen, die in der Marker-Spalte nicht Effective, Filtered oder Amelogenin haben.
+  
+  doc_a <- cast(doc_a, Sample ~ Marker, fun.aggregate = sum)
+  # hier wird die doc_a Tabelle neu organisiert? (Marker gegen Sample)
+  
+  doc_m <- doc_a[,-1]
+  # doc_a ohne die erste Spalte (ohne Sample)
+  
+  rownames(doc_m) <- doc_a[,1]
+  # erste Spalte von doc_a wird als "rownames(doc_m)" gespeichert (Sample ist jetzt "rownames(doc_m)"?)
+  
+  doc_m <- data.matrix(doc_m)
+  # erstellt Matrix aus doc_m
+  
+  doc_m <- doc_m[,order(colSums(doc_m), decreasing=TRUE)]
+  # ordnet die Spalten nach Spaltensumme in absteigender Reihenfolge
+  
+  doc_m <- cbind(doc_m, doc_x)
+  # verbindet doc_m und doc_x zu einer Matrix/Tabelle
+  
+  colnames(doc_m)[length(colnames(doc_m))] <- "Amelogenin" 
+  # ?
+  
+  # Pfad anpassen
+  write.table(doc_m, file = paste(out_dir, run, "_DoC.csv", sep = ""), append = FALSE, quote = TRUE, sep = ",", eol = "\n", na = "NA", dec = ".", col.names = NA, qmethod = c("escape", "double"),fileEncoding = "")
+  # Tabelle aus doc_m (also der doc_m die jetzt auch doc_x enthält)
+  # eine Tabelle für jedes der run (Schleife)
+  
+  doc_m <- doc_m[order(rowSums(doc_m), decreasing=FALSE),]
+  # ordner die Zeilen nach Zeilensummen in absteigender Reihenfolge
+  
+  pdf(paste(out_dir, run, "_DoC.pdf", sep = ""), onefile = FALSE)
+  aheatmap(doc_m, Rowv=NA, Colv=NA, color = "-RdYlBu2:100", main = run)
+  doc_heatmap <- recordPlot()
+  # eine heatmap aus doc_m wird erstellt (Farben je nach Readzahl?)
+  dev.off()
+  return(doc_heatmap)
+}
+
+acr <- function(sn_ln_stutter_true_table, out_dir, run) {
+  #Berechnung der Allele Coverage Ratio (ACR)
+  Allele_Cov_Ratio <- aggregate(sn_ln_stutter_true_table$Reads, by = list(Run = sn_ln_stutter_true_table$Run, Marker = sn_ln_stutter_true_table$Marker, Sample = sn_ln_stutter_true_table$Sample, Result = sn_ln_stutter_true_table$Result, call_Allel = sn_ln_stutter_true_table$call_Allele), FUN = function(x) sum = sum(x))
+  Allele_Cov_Ratio <- filter(Allele_Cov_Ratio, Result == "true")
+  colnames(Allele_Cov_Ratio) <- c("Run", "Marker","Sample", "Result","call_Allele", "Reads")
+  #Allele_Cov_Ratio <- Allele_Cov_Ratio %>% group_by(Run, Sample, Marker, Result, call_Allele) %>% summarise(Reads = sum(Reads))
+  
+  ACR_table <-do.call(rbind, 
+                      by(Allele_Cov_Ratio, 
+                         INDICES = list(Run = Allele_Cov_Ratio$Run, Marker = Allele_Cov_Ratio$Marker, Sample = Allele_Cov_Ratio$Sample), 
+                         FUN = function(x) {
+                           # max_call_allel = max(as.numeric(x$call_Allele))
+                           # max_call_allel_reads = x[x$call_Allele == max_call_allel, "Reads"]
+                           
+                           # min_call_allel = min(as.numeric(x$call_Allele))
+                           #min_call_allel_reads = x[x$call_Allele == min_call_allel, "Reads"]
+                           max_call_allel_reads = max(as.numeric(x$Reads))
+                           min_call_allel_reads = min(as.numeric(x$Reads))
+                           acr = (min_call_allel_reads/max_call_allel_reads) %>% unlist
+                           x$ACR = acr
+                           return(x)
+                         })
+  ) %>% as.data.frame
+  result = list()
+  
+  write.csv(ACR_table, file=paste(out_dir, run, "_ACR_table.csv", sep=""),row.names=F,col.names=F, quote = FALSE)
+  
+  ACR_table$Marker <- as.factor(ACR_table$Marker)
+  
+  #ACR Boxplots
+  g <- ggplot(ACR_table, aes(x=reorder(Marker, ACR, FUN = median), y=ACR)) + geom_boxplot(color = "black", fill = "dodgerblue2")  
+  g <- g + xlab("Marker") + geom_hline(yintercept=0.6, color =  "red")
+  g <- g + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Allele Coverage Ratio per Marker") 
+  g <- g + stat_summary(fun.y=mean, geom="point", color="white", fill="white") 
+  g <- g + coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1))
+  
+  ggsave(file = paste(run, "ACR.pdf", sep = "_"), plot = g, path = out_dir)
+  return(g)
+}
+
+scr <- function() {
+  
+}
+
+snr <- function() {
+  
+}
+
+str <- function() {
+  
+}
