@@ -10,7 +10,7 @@ library(cowplot)
 h_treshold <- 0.5
 
 combine_Allele <- function(Data_File, Profiles_file, global_samples_file, out_dir) {
-  #Data_File <- "/home/jbierm2m/strstats/data/Run_comb.out"
+  #Data_File <- "/home/jbierm2m/strstats/data/Run_01.out"
   #Profiles_file <- "resources/profiles.csv" 
   #global_samples_file <- "resources/global_sample_overview_forensic.csv"
 
@@ -88,7 +88,6 @@ combine_Allele <- function(Data_File, Profiles_file, global_samples_file, out_di
     for(my.plot in run_plots) {
       print(my.plot)
     }
-    grid.table(doc_m_expanded)
     dev.off()
     
     filename <- paste(out_dir, run, "_Report.pdf", sep = "")
