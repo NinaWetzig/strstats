@@ -10,7 +10,7 @@ library(cowplot)
 h_treshold <- 0.5
 
 combine_Allele <- function(Data_File, Profiles_file, global_samples_file, out_dir) {
-  #Data_File <- "/home/jbierm2m/strstats/data/Run_01.out"
+  #Data_File <- "/home/jbierm2m/strstats/data/Run_11.out"
   #Profiles_file <- "resources/profiles.csv" 
   #global_samples_file <- "resources/global_sample_overview_forensic.csv"
 
@@ -204,7 +204,7 @@ doc <- function(combined_table, out_dir, run) {
   doc_m <- doc_a[,-1]
   rownames(doc_m) <- doc_a[,1]
   doc_m <- data.matrix(doc_m)
-  doc_m <- doc_m[,order(colSums(doc_m), decreasing=TRUE)]
+  doc_m <- doc_m[,order(colSums(doc_m), decreasing=FALSE)]
   doc_m <- cbind(doc_m, doc_x)
   colnames(doc_m)[length(colnames(doc_m))] <- "Amelogenin"
   
@@ -214,7 +214,7 @@ doc <- function(combined_table, out_dir, run) {
   rownames(doc_m_expanded)[length(rownames(doc_m_expanded))] <- "Global"
   write.table(doc_m_expanded, file = paste(out_dir, run, "_DoC_expanded.csv", sep = ""), append = FALSE, quote = TRUE, sep = ",", eol = "\n", na = "NA", dec = ".", col.names = NA, qmethod = c("escape", "double"),fileEncoding = "")
   
-  doc_m <- doc_m[order(rowSums(doc_m), decreasing=FALSE),]
+  doc_m <- doc_m[order(rowSums(doc_m), decreasing=TRUE),]
   
   pdf(paste(out_dir, run, "_DoC.pdf", sep = ""), onefile = FALSE)
   aheatmap(doc_m, Rowv=NA, Colv=NA, color = "-RdYlBu2:100", main = "Depth of Coverage", sub = "Depth of Coverage is the amount of reads that have been assigned to a marker, per sample")
